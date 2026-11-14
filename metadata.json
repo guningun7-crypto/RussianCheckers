@@ -1,0 +1,6 @@
+{
+  "name": "Юный Шашист",
+  "description": "Обучающее приложение по русским шашкам для детей: интерактивные уровни сложности, анимированные подсказки, логические задачи и система наград.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Юный Шашист</string>
+    <string name="nav_lessons">Уроки</string>
+    <string name="nav_puzzles">Задачи</string>
+    <string name="nav_play">Играть</string>
+    <string name="nav_rewards">Награды</string>
+    <string name="nav_updates">Обновить</string>
+    <string name="mascot_desc">Совёнок Шашик — твой учитель шашек</string>
+    <string name="trophy_desc">Коллекция наград и кубков</string>
+    <string name="hint_button">Подсказка</string>
+    <string name="replay_demo">Повторить показ</string>
+    <string name="try_yourself">Попробуй сам!</string>
+    <string name="next_lesson">Следующий урок</string>
+    <string name="reset_board">Сначала</string>
+</resources>
