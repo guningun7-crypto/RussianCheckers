@@ -1,0 +1,145 @@
+package com.example.domain.curriculum
+
+import com.example.domain.checkers.BotDifficulty
+import com.example.domain.checkers.CheckersBoard
+
+data class EndgameScenario(
+  val id: String,
+  val order: Int,
+  val title: String,
+  val subtitle: String,
+  val goalText: String,
+  val initialRows: List<String>,
+  val maxMovesHint: Int,
+  val recommendedBot: BotDifficulty,
+  val starsReward: Int,
+) {
+  fun initialBoard(): CheckersBoard = CheckersBoard.fromStrings(initialRows)
+}
+
+object EndgameCatalog {
+  val scenarios: List<EndgameScenario> = listOf(
+    EndgameScenario(
+      id = "endgame_3v1_highway",
+      order = 1,
+      title = "3 дамки против 1 дамки",
+      subtitle = "Техника ловли на большой дороге",
+      goalText = "Поймай одинокую чёрную дамку своими тремя дамками за 15 ходов!",
+      initialRows = listOf(
+        ".......B",
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+        "..W.W.W.",
+      ),
+      maxMovesHint = 15,
+      recommendedBot = BotDifficulty.GRANDMASTER,
+      starsReward = 4,
+    ),
+    EndgameScenario(
+      id = "endgame_petrov_triangle",
+      order = 2,
+      title = "Треугольник Петрова",
+      subtitle = "Классическое окружение на двойнике",
+      goalText = "Построй треугольник из белых дамок и поймай чёрную дамку на длинной диагонали!",
+      initialRows = listOf(
+        "........",
+        "B.......",
+        "........",
+        "........",
+        "........",
+        "........",
+        ".W.W.W..",
+        "........",
+      ),
+      maxMovesHint = 15,
+      recommendedBot = BotDifficulty.CHAMPION,
+      starsReward = 5,
+    ),
+    EndgameScenario(
+      id = "endgame_king_man_vs_king",
+      order = 3,
+      title = "Дамка и шашка против дамки",
+      subtitle = "Проведение второй дамки",
+      goalText = "Прикрой свою простую шашку дамкой и доведи её до 8-й горизонтали!",
+      initialRows = listOf(
+        ".......B",
+        "........",
+        "........",
+        "........",
+        "...W....",
+        "..w.....",
+        "........",
+        "........",
+      ),
+      maxMovesHint = 20,
+      recommendedBot = BotDifficulty.TACTICIAN,
+      starsReward = 4,
+    ),
+    EndgameScenario(
+      id = "endgame_two_vs_one",
+      order = 4,
+      title = "Две шашки против одной",
+      subtitle = "Прорыв и оппозиция",
+      goalText = "Победи чёрную шашку d6 с помощью прорыва или запирания в оппозиции!",
+      initialRows = listOf(
+        "........",
+        "........",
+        "...b....",
+        "........",
+        "........",
+        "..w...w.",
+        "........",
+        "........",
+      ),
+      maxMovesHint = 18,
+      recommendedBot = BotDifficulty.GRANDMASTER,
+      starsReward = 4,
+    ),
+    EndgameScenario(
+      id = "endgame_2_kings_2_men",
+      order = 5,
+      title = "Острый миттельшпильный эндшпиль",
+      subtitle = "Реализация лишней шашки",
+      goalText = "У белых 3 шашки против 2 чёрных. Прорвись в дамки и доведи партию до победы!",
+      initialRows = listOf(
+        "........",
+        "..b.....",
+        ".....b..",
+        "........",
+        "...w....",
+        "......w.",
+        ".w......",
+        "........",
+      ),
+      maxMovesHint = 22,
+      recommendedBot = BotDifficulty.GRANDMASTER,
+      starsReward = 5,
+    ),
+    EndgameScenario(
+      id = "endgame_4v3_breakthrough",
+      order = 6,
+      title = "Разрядный эндшпиль 4 на 3",
+      subtitle = "Точный расчёт против Мастера",
+      goalText = "Переиграй Мастера спорта в окончании с лишней шашкой (4 белых против 3 чёрных).",
+      initialRows = listOf(
+        ".......b",
+        "..b.....",
+        ".....b..",
+        "........",
+        ".w...w..",
+        "......w.",
+        "...w....",
+        "........",
+      ),
+      maxMovesHint = 25,
+      recommendedBot = BotDifficulty.CHAMPION,
+      starsReward = 5,
+    ),
+  )
+
+  fun findById(id: String): EndgameScenario? = scenarios.find { it.id == id }
+}

@@ -759,3 +759,24 @@ object PuzzleCatalog {
 
   fun findById(id: String): LogicPuzzle? = puzzles.find { it.id == id }
 }
+
+object DailyPuzzleHelper {
+  fun todayDateKey(): String {
+    val cal = java.util.Calendar.getInstance()
+    val year = cal.get(java.util.Calendar.YEAR)
+    val dayOfYear = cal.get(java.util.Calendar.DAY_OF_YEAR)
+    return "$year-$dayOfYear"
+  }
+
+  fun pickDailyPuzzle(allPuzzles: List<LogicPuzzle>, dateKey: String = todayDateKey()): LogicPuzzle? {
+    val hardPool = allPuzzles.filter {
+      it.difficulty == PuzzleDifficulty.HARD || it.difficulty == PuzzleDifficulty.MASTER
+    }
+    val pool = if (hardPool.isNotEmpty()) hardPool else allPuzzles
+    if (pool.isEmpty()) return null
+    val hash = dateKey.fold(17) { acc, ch -> acc * 31 + ch.code }
+    val idx = kotlin.math.abs(hash) % pool.size
+    return pool[idx]
+  }
+}
+

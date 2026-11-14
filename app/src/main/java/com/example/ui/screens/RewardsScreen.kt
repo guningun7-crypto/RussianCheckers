@@ -40,11 +40,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.domain.checkers.EloRatingCalculator
+import com.example.domain.curriculum.EndgameCatalog
 import com.example.domain.curriculum.RewardBadge
 import com.example.domain.curriculum.RewardCatalog
 import com.example.ui.components.badgeIconFor
 import com.example.ui.theme.CrownGold
 import com.example.ui.theme.ForestEmerald
+import com.example.ui.theme.SkyBlue
 import com.example.ui.viewmodel.AppProgressUiState
 
 @Composable
@@ -54,6 +57,8 @@ fun RewardsScreen(
 ) {
   val stars = progressState.stats.totalStars
   val rank = RewardCatalog.rankForStars(stars)
+  val elo = progressState.stats.eloRating
+  val sportsRank = EloRatingCalculator.sportsRankForElo(elo)
   val completedLessons = progressState.allLessons.count { progressState.lessonProgress[it.id]?.completed == true }
   val solvedPuzzles = progressState.allPuzzles.count { progressState.puzzleProgress[it.id]?.solved == true }
   val badges = RewardCatalog.badges
@@ -155,6 +160,79 @@ fun RewardsScreen(
       }
 
       item {
+        Card(
+          shape = RoundedCornerShape(22.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("rewards_elo_passport_card"),
+        ) {
+          Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column {
+                Text(
+                  text = "Внутренний рейтинг Эло",
+                  style = MaterialTheme.typography.labelMedium,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                  text = "${sportsRank.badgeEmoji} ${sportsRank.title}",
+                  style = MaterialTheme.typography.titleMedium,
+                  color = MaterialTheme.colorScheme.primary,
+                  fontWeight = FontWeight.Bold,
+                )
+              }
+              Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surface,
+              ) {
+                Text(
+                  text = "$elo Эло",
+                  style = MaterialTheme.typography.titleLarge,
+                  fontWeight = FontWeight.Bold,
+                  color = SkyBlue,
+                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+              }
+            }
+
+            if (sportsRank.nextElo != null) {
+              val span = (sportsRank.nextElo - sportsRank.minElo).coerceAtLeast(1)
+              val eloProgress = ((elo - sportsRank.minElo).toFloat() / span).coerceIn(0f, 1f)
+              Text(
+                text = "Рекорд: ${progressState.stats.bestEloRating} Эло • До разряда осталось ${sportsRank.nextElo - elo} очков",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              LinearProgressIndicator(
+                progress = { eloProgress },
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(8.dp),
+                color = SkyBlue,
+                trackColor = MaterialTheme.colorScheme.surface,
+                strokeCap = StrokeCap.Round,
+              )
+            } else {
+              Text(
+                text = "Высшая квалификация достигнута! Рекорд: ${progressState.stats.bestEloRating} Эло",
+                style = MaterialTheme.typography.bodyMedium,
+                color = ForestEmerald,
+                fontWeight = FontWeight.Bold,
+              )
+            }
+          }
+        }
+      }
+
+      item {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -172,6 +250,29 @@ fun RewardsScreen(
           StatMiniCard(
             label = "Победы",
             value = "${progressState.stats.gamesWon}",
+            modifier = Modifier.weight(1f),
+          )
+          StatMiniCard(
+            label = "Штурм PB",
+            value = "${progressState.stats.puzzleRushBest}",
+            modifier = Modifier.weight(1f),
+          )
+        }
+      }
+
+      item {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          StatMiniCard(
+            label = "Эндшпили",
+            value = "${progressState.endgamesSolvedIds.size}/${EndgameCatalog.scenarios.size}",
+            modifier = Modifier.weight(1f),
+          )
+          StatMiniCard(
+            label = "Ничьи",
+            value = "${progressState.stats.drawsCount}",
             modifier = Modifier.weight(1f),
           )
           StatMiniCard(

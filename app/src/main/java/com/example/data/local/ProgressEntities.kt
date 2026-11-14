@@ -30,6 +30,12 @@ data class PlayerStatsEntity(
   val highestDifficultyWon: Int = 0,
   val currentStreak: Int = 0,
   val unlockedBadgesCsv: String = "",
+  val eloRating: Int = 1000,
+  val bestEloRating: Int = 1000,
+  val puzzleRushBest: Int = 0,
+  val dailyPuzzleLastDate: String = "",
+  val endgamesSolvedCsv: String = "",
+  val drawsCount: Int = 0,
 )
 
 @Entity(tableName = "custom_puzzles")

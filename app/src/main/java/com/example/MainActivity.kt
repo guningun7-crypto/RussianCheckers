@@ -31,6 +31,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -51,17 +52,22 @@ import androidx.navigation.navArgument
 import com.example.data.local.AppDatabase
 import com.example.data.local.ProgressRepository
 import com.example.domain.checkers.BotDifficulty
+import com.example.domain.checkers.PlayerColorPreference
+import com.example.domain.checkers.TimeControlOption
 import com.example.ui.components.BadgeCelebrationDialog
+import com.example.ui.screens.EndgameHubScreen
 import com.example.ui.screens.LessonDetailScreen
 import com.example.ui.screens.LessonsScreen
 import com.example.ui.screens.PlayGameScreen
 import com.example.ui.screens.PlayHubScreen
 import com.example.ui.screens.PuzzleDetailScreen
+import com.example.ui.screens.PuzzleRushScreen
 import com.example.ui.screens.PuzzlesScreen
 import com.example.ui.screens.RewardsScreen
 import com.example.ui.screens.UpdatesScreen
 import com.example.ui.theme.ShashkiTheme
 import com.example.ui.viewmodel.AppProgressViewModel
+import com.example.ui.viewmodel.GameLaunchConfig
 import com.example.ui.viewmodel.UpdatesViewModel
 
 const val ROUTE_LESSONS = "lessons"
@@ -70,8 +76,10 @@ const val ROUTE_PLAY_HUB = "play_hub"
 const val ROUTE_REWARDS = "rewards"
 const val ROUTE_UPDATES = "updates"
 const val ROUTE_LESSON_DETAIL = "lesson/{lessonId}"
-const val ROUTE_PUZZLE_DETAIL = "puzzle/{puzzleId}"
-const val ROUTE_PLAY_GAME = "game/{mode}"
+const val ROUTE_PUZZLE_DETAIL = "puzzle/{puzzleId}?isDaily={isDaily}"
+const val ROUTE_PLAY_GAME = "game/{mode}?color={color}&clock={clock}&flying={flying}&endgame={endgame}"
+const val ROUTE_PUZZLE_RUSH = "puzzle_rush"
+const val ROUTE_ENDGAME_HUB = "endgame_hub"
 
 private data class TopTab(
   val route: String,
@@ -104,6 +112,7 @@ fun ShashkiApp() {
   )
   val progressState by progressViewModel.uiState.collectAsStateWithLifecycle()
   val pendingBadges by progressViewModel.pendingBadges.collectAsStateWithLifecycle()
+  val lastGameEloDelta by progressViewModel.lastGameEloDelta.collectAsStateWithLifecycle()
 
   val navController = rememberNavController()
   val backStackEntry by navController.currentBackStackEntryAsState()
@@ -213,8 +222,14 @@ fun ShashkiApp() {
               progressState = progressState,
               hintsEnabled = progressState.hintsEnabled,
               onToggleHints = { progressViewModel.setHintsEnabled(it) },
-              onPuzzleClick = { puzzleId ->
-                navController.navigate("puzzle/$puzzleId")
+              onPuzzleClick = { puzzleId, isDaily ->
+                navController.navigate("puzzle/$puzzleId?isDaily=$isDaily")
+              },
+              onStartPuzzleRush = {
+                navController.navigate(ROUTE_PUZZLE_RUSH)
+              },
+              onOpenEndgameHub = {
+                navController.navigate(ROUTE_ENDGAME_HUB)
               },
             )
           }
@@ -224,11 +239,14 @@ fun ShashkiApp() {
               progressState = progressState,
               hintsEnabled = progressState.hintsEnabled,
               onToggleHints = { progressViewModel.setHintsEnabled(it) },
-              onStartBotMatch = { diff ->
-                navController.navigate("game/${diff.name}")
+              onStartBotMatch = { diff, colorPref, clock, flying ->
+                navController.navigate("game/${diff.name}?color=${colorPref.name}&clock=${clock.name}&flying=$flying&endgame=")
               },
-              onStartTwoPlayerMatch = {
-                navController.navigate("game/TWO_PLAYERS")
+              onStartTwoPlayerMatch = { clock, flying ->
+                navController.navigate("game/TWO_PLAYERS?color=WHITE&clock=${clock.name}&flying=$flying&endgame=")
+              },
+              onOpenEndgameHub = {
+                navController.navigate(ROUTE_ENDGAME_HUB)
               },
             )
           }
@@ -242,6 +260,28 @@ fun ShashkiApp() {
               factory = UpdatesViewModel.Factory(repository),
             )
             UpdatesScreen(viewModel = updatesViewModel)
+          }
+
+          composable(ROUTE_PUZZLE_RUSH) {
+            PuzzleRushScreen(
+              allPuzzles = progressState.allPuzzles,
+              personalBest = progressState.stats.puzzleRushBest,
+              hintsEnabled = progressState.hintsEnabled,
+              onBack = { navController.popBackStack() },
+              onRushFinished = { score ->
+                progressViewModel.onPuzzleRushFinished(score)
+              },
+            )
+          }
+
+          composable(ROUTE_ENDGAME_HUB) {
+            EndgameHubScreen(
+              solvedEndgameIds = progressState.endgamesSolvedIds,
+              onStartEndgame = { scenarioId, botDifficulty ->
+                navController.navigate("game/${botDifficulty.name}?color=WHITE&clock=NONE&flying=false&endgame=$scenarioId")
+              },
+              onBack = { navController.popBackStack() },
+            )
           }
 
           composable(
@@ -269,9 +309,16 @@ fun ShashkiApp() {
 
           composable(
             route = ROUTE_PUZZLE_DETAIL,
-            arguments = listOf(navArgument("puzzleId") { type = NavType.StringType }),
+            arguments = listOf(
+              navArgument("puzzleId") { type = NavType.StringType },
+              navArgument("isDaily") {
+                type = NavType.BoolType
+                defaultValue = false
+              },
+            ),
           ) { entry ->
             val puzzleId = entry.arguments?.getString("puzzleId") ?: return@composable
+            val isDaily = entry.arguments?.getBoolean("isDaily") ?: false
             val puzzle = progressState.allPuzzles.firstOrNull { it.id == puzzleId } ?: return@composable
             PuzzleDetailScreen(
               puzzle = puzzle,
@@ -280,29 +327,73 @@ fun ShashkiApp() {
               onToggleHints = { progressViewModel.setHintsEnabled(it) },
               onBack = { navController.popBackStack() },
               onNavigateToNextPuzzle = { nextId ->
-                navController.navigate("puzzle/$nextId") {
-                  popUpTo("puzzle/$puzzleId") { inclusive = true }
+                navController.navigate("puzzle/$nextId?isDaily=false") {
+                  popUpTo("puzzle/$puzzleId?isDaily=$isDaily") { inclusive = true }
                 }
               },
               onPuzzleSolved = { id, stars, usedHint ->
-                progressViewModel.onPuzzleSolved(id, stars, usedHint)
+                progressViewModel.onPuzzleSolved(
+                  puzzleId = id,
+                  starsAwarded = stars,
+                  usedHint = usedHint,
+                  difficulty = puzzle.difficulty,
+                  dailyDateKey = if (isDaily) progressState.todayDateKey else null,
+                )
               },
             )
           }
 
           composable(
             route = ROUTE_PLAY_GAME,
-            arguments = listOf(navArgument("mode") { type = NavType.StringType }),
+            arguments = listOf(
+              navArgument("mode") { type = NavType.StringType },
+              navArgument("color") {
+                type = NavType.StringType
+                defaultValue = PlayerColorPreference.WHITE.name
+              },
+              navArgument("clock") {
+                type = NavType.StringType
+                defaultValue = TimeControlOption.NONE.name
+              },
+              navArgument("flying") {
+                type = NavType.BoolType
+                defaultValue = false
+              },
+              navArgument("endgame") {
+                type = NavType.StringType
+                defaultValue = ""
+              },
+            ),
           ) { entry ->
             val mode = entry.arguments?.getString("mode") ?: "BEGINNER"
+            val colorName = entry.arguments?.getString("color") ?: PlayerColorPreference.WHITE.name
+            val clockName = entry.arguments?.getString("clock") ?: TimeControlOption.NONE.name
+            val flying = entry.arguments?.getBoolean("flying") ?: false
+            val endgameId = entry.arguments?.getString("endgame")?.takeIf { it.isNotBlank() }
+
             val difficulty = BotDifficulty.entries.firstOrNull { it.name == mode }
+            val colorPref = PlayerColorPreference.entries.firstOrNull { it.name == colorName } ?: PlayerColorPreference.WHITE
+            val timeControl = TimeControlOption.entries.firstOrNull { it.name == clockName } ?: TimeControlOption.NONE
+
+            LaunchedEffect(mode, colorPref, timeControl, flying, endgameId) {
+              progressViewModel.clearLastGameEloDelta()
+            }
+
             PlayGameScreen(
-              difficulty = difficulty,
+              launchConfig = GameLaunchConfig(
+                difficulty = difficulty,
+                colorPref = colorPref,
+                timeControl = timeControl,
+                flyingCheckers = flying,
+                endgameScenarioId = endgameId,
+              ),
               hintsEnabled = progressState.hintsEnabled,
+              lastGameEloDelta = lastGameEloDelta,
               onToggleHints = { progressViewModel.setHintsEnabled(it) },
+              onNewMatchStarted = { progressViewModel.clearLastGameEloDelta() },
               onBack = { navController.popBackStack() },
-              onGameFinished = { won, diff, stars ->
-                progressViewModel.onGameFinished(won, diff, stars)
+              onGameFinished = { outcome, diff, stars, egId ->
+                progressViewModel.onGameFinished(outcome, diff, stars, egId)
               },
             )
           }

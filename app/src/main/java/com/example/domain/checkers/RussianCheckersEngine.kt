@@ -319,6 +319,8 @@ object RussianCheckersEngine {
     return (f shl 6) or t
   }
 
+  fun boardHash(board: CheckersBoard, turn: PieceColor): Long = computeHash(board, turn)
+
   private fun computeHash(board: CheckersBoard, turn: PieceColor): Long {
     var h = if (turn == PieceColor.BLACK) ZOBRIST_BLACK_TURN else 0L
     val cells = board.cells
@@ -361,22 +363,49 @@ object RussianCheckersEngine {
         pickFromRanked(ranked, maxDiffCp = 10, random = random)
       }
       BotDifficulty.TACTICIAN -> {
+        if (random.nextFloat() < 0.55f) {
+          OpeningBook.lookupBookMove(board, botColor, random)?.let { return it }
+        }
         val ranked = searchIterative(board, botColor, maxDepth = 5, timeBudgetMs = 480L, ttBits = 14)
         val totalPieces = board.countPieces(PieceColor.WHITE) + board.countPieces(PieceColor.BLACK)
         val tolerance = if (totalPieces >= 22) 5 else 0
         pickFromRanked(ranked, maxDiffCp = tolerance, random = random)
       }
       BotDifficulty.GRANDMASTER -> {
+        OpeningBook.lookupBookMove(board, botColor, random)?.let { return it }
         val ranked = searchIterative(board, botColor, maxDepth = 7, timeBudgetMs = 950L, ttBits = 15)
         val totalPieces = board.countPieces(PieceColor.WHITE) + board.countPieces(PieceColor.BLACK)
         val tolerance = if (totalPieces == 24) 2 else 0
         pickFromRanked(ranked, maxDiffCp = tolerance, random = random)
       }
       BotDifficulty.CHAMPION -> {
+        OpeningBook.lookupBookMove(board, botColor, random)?.let { return it }
         val ranked = searchIterative(board, botColor, maxDepth = 9, timeBudgetMs = 1500L, ttBits = 15)
         ranked.first().first
       }
     }
+  }
+
+  /**
+   * Fast tactical evaluation from WHITE's perspective (in centipawns) for post-game move review.
+   */
+  fun evaluatePositionQuick(board: CheckersBoard, turn: PieceColor): Int {
+    val legal = getLegalMoves(board, turn)
+    if (legal.isEmpty()) {
+      return if (turn == PieceColor.WHITE) -MATE_SCORE else MATE_SCORE
+    }
+    val ctx = SearchContext(deadlineNanos = System.nanoTime() + 45_000_000L, ttBits = 12)
+    ctx.allowTimeout = false
+    val scoreForTurn = negamax(
+      board = board,
+      depth = 2,
+      ply = 0,
+      alpha = -INF,
+      beta = INF,
+      turn = turn,
+      ctx = ctx,
+    )
+    return if (turn == PieceColor.WHITE) scoreForTurn else -scoreForTurn
   }
 
   fun computeBestHint(board: CheckersBoard, playerColor: PieceColor): HintRecommendation? {

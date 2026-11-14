@@ -22,8 +22,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,6 +47,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.local.PuzzleProgressEntity
+import com.example.domain.curriculum.DailyPuzzleHelper
+import com.example.domain.curriculum.EndgameCatalog
 import com.example.domain.curriculum.LogicPuzzle
 import com.example.domain.curriculum.PuzzleDifficulty
 import com.example.ui.components.HintsModeCard
@@ -62,7 +67,9 @@ fun PuzzlesScreen(
   progressState: AppProgressUiState,
   hintsEnabled: Boolean,
   onToggleHints: (Boolean) -> Unit,
-  onPuzzleClick: (String) -> Unit,
+  onPuzzleClick: (String, Boolean) -> Unit,
+  onStartPuzzleRush: () -> Unit,
+  onOpenEndgameHub: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   var selectedDifficulty by remember { mutableStateOf<PuzzleDifficulty?>(null) }
@@ -116,6 +123,132 @@ fun PuzzlesScreen(
         )
       }
 
+      val dailyPuzzle = DailyPuzzleHelper.pickDailyPuzzle(allPuzzles, progressState.todayDateKey)
+      if (dailyPuzzle != null) {
+        item {
+          val solvedToday = progressState.dailyPuzzleSolvedToday
+          Card(
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("daily_puzzle_card")
+              .clip(RoundedCornerShape(20.dp))
+              .clickable { onPuzzleClick(dailyPuzzle.id, true) },
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+              containerColor = if (solvedToday) {
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
+              } else {
+                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.78f)
+              },
+            ),
+          ) {
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+              Box(
+                modifier = Modifier
+                  .size(48.dp)
+                  .clip(CircleShape)
+                  .background(if (solvedToday) ForestEmerald else CrownGold),
+                contentAlignment = Alignment.Center,
+              ) {
+                Icon(
+                  imageVector = if (solvedToday) Icons.Filled.CheckCircle else Icons.Filled.CalendarToday,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onPrimary,
+                  modifier = Modifier.size(24.dp),
+                )
+              }
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text = if (solvedToday) "Задача дня выполнена!" else "Задача дня • +2 бонус ⭐",
+                  style = MaterialTheme.typography.labelLarge,
+                  color = if (solvedToday) ForestEmerald else MaterialTheme.colorScheme.primary,
+                  fontWeight = FontWeight.Bold,
+                )
+                Text(
+                  text = "${dailyPuzzle.title} (${dailyPuzzle.difficulty.label})",
+                  style = MaterialTheme.typography.titleMedium,
+                )
+              }
+            }
+          }
+        }
+      }
+
+      item {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          Card(
+            modifier = Modifier
+              .weight(1f)
+              .testTag("puzzle_rush_entry_card")
+              .clip(RoundedCornerShape(18.dp))
+              .clickable(onClick = onStartPuzzleRush),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+          ) {
+            Column(
+              modifier = Modifier.padding(14.dp),
+              verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                Icon(Icons.Filled.Bolt, contentDescription = null, tint = TerracottaOrange)
+                Text(
+                  text = "Штурм 3 мин",
+                  style = MaterialTheme.typography.titleMedium,
+                )
+              }
+              Text(
+                text = "Рекорд: ${progressState.stats.puzzleRushBest} • 3 жизни",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+          }
+
+          Card(
+            modifier = Modifier
+              .weight(1f)
+              .testTag("puzzles_endgame_entry_card")
+              .clip(RoundedCornerShape(18.dp))
+              .clickable(onClick = onOpenEndgameHub),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)),
+          ) {
+            Column(
+              modifier = Modifier.padding(14.dp),
+              verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = ForestEmerald)
+                Text(
+                  text = "Эндшпиль",
+                  style = MaterialTheme.typography.titleMedium,
+                )
+              }
+              Text(
+                text = "Пройдено ${progressState.endgamesSolvedIds.size}/${EndgameCatalog.scenarios.size}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+          }
+        }
+      }
+
       item {
         HintsModeCard(
           hintsEnabled = hintsEnabled,
@@ -151,7 +284,7 @@ fun PuzzlesScreen(
           displayNumber = allPuzzles.indexOfFirst { it.id == puzzle.id }.let { if (it >= 0) it + 1 else puzzle.order },
           isCustom = puzzle.id in progressState.customPuzzleIds,
           progress = progressState.puzzleProgress[puzzle.id],
-          onClick = { onPuzzleClick(puzzle.id) },
+          onClick = { onPuzzleClick(puzzle.id, false) },
         )
       }
 

@@ -89,6 +89,7 @@ fun CheckersBoardView(
   animatedHint: CheckersMove? = null,
   showCelebration: Boolean = false,
   interactive: Boolean = true,
+  flipped: Boolean = false,
   onSquareClick: (Square) -> Unit = {},
 ) {
   val infiniteTransition = rememberInfiniteTransition(label = "boardPulse")
@@ -144,8 +145,8 @@ fun CheckersBoardView(
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.SpaceBetween,
     ) {
-      // Top file labels (A..H)
-      FileLabelsRow(modifier = Modifier.padding(horizontal = labelMargin))
+      // Top file labels
+      FileLabelsRow(flipped = flipped, modifier = Modifier.padding(horizontal = labelMargin))
 
       Row(
         modifier = Modifier
@@ -153,8 +154,8 @@ fun CheckersBoardView(
           .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        // Left rank labels (8..1)
-        RankLabelsColumn(modifier = Modifier.widthIn(min = labelMargin))
+        // Left rank labels
+        RankLabelsColumn(flipped = flipped, modifier = Modifier.widthIn(min = labelMargin))
 
         // 8x8 Playable Grid
         Box(
@@ -165,9 +166,11 @@ fun CheckersBoardView(
         ) {
           // Draw squares + highlight indicators
           Column(modifier = Modifier.fillMaxSize()) {
-            for (r in 0..7) {
+            for (vr in 0..7) {
               Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                for (c in 0..7) {
+                for (vc in 0..7) {
+                  val r = if (flipped) 7 - vr else vr
+                  val c = if (flipped) 7 - vc else vc
                   val sq = Square(r, c)
                   val isDark = sq.isPlayable
                   val isSelected = selectedSquare == sq
@@ -268,12 +271,15 @@ fun CheckersBoardView(
                 label = "pieceScale_${r}_$c",
               )
 
+              val visualRow = if (flipped) 7 - r else r
+              val visualCol = if (flipped) 7 - c else c
+
               Box(
                 modifier = Modifier
                   .offset {
                     IntOffset(
-                      x = (c * cellSizePx).roundToInt(),
-                      y = (r * cellSizePx).roundToInt(),
+                      x = (visualCol * cellSizePx).roundToInt(),
+                      y = (visualRow * cellSizePx).roundToInt(),
                     )
                   }
                   .size(cellSizeDp),
@@ -297,6 +303,7 @@ fun CheckersBoardView(
                 cellSizePx = size.width / 8f,
                 pulse = pulseProgress,
                 traveller = hintTraveller,
+                flipped = flipped,
               )
             }
           }
@@ -312,23 +319,27 @@ fun CheckersBoardView(
           }
         }
 
-        // Right rank labels (8..1)
-        RankLabelsColumn(modifier = Modifier.widthIn(min = labelMargin))
+        // Right rank labels
+        RankLabelsColumn(flipped = flipped, modifier = Modifier.widthIn(min = labelMargin))
       }
 
-      // Bottom file labels (A..H)
-      FileLabelsRow(modifier = Modifier.padding(horizontal = labelMargin))
+      // Bottom file labels
+      FileLabelsRow(flipped = flipped, modifier = Modifier.padding(horizontal = labelMargin))
     }
   }
 }
 
 @Composable
-private fun FileLabelsRow(modifier: Modifier = Modifier) {
+private fun FileLabelsRow(
+  flipped: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  val files = if (flipped) ('H' downTo 'A') else ('A'..'H')
   Row(
     modifier = modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.SpaceAround,
   ) {
-    ('A'..'H').forEach { ch ->
+    files.forEach { ch ->
       Text(
         text = ch.toString(),
         fontSize = 10.sp,
@@ -340,13 +351,17 @@ private fun FileLabelsRow(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun RankLabelsColumn(modifier: Modifier = Modifier) {
+private fun RankLabelsColumn(
+  flipped: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  val ranks = if (flipped) (1..8) else (8 downTo 1)
   Column(
     modifier = modifier.fillMaxHeight(),
     verticalArrangement = Arrangement.SpaceAround,
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    (8 downTo 1).forEach { rank ->
+    ranks.forEach { rank ->
       Text(
         text = rank.toString(),
         fontSize = 10.sp,
@@ -461,12 +476,15 @@ private fun DrawScope.drawAnimatedHintOverlay(
   cellSizePx: Float,
   pulse: Float,
   traveller: Float,
+  flipped: Boolean = false,
 ) {
   val points = listOf(move.from) + move.steps.map { it.to }
   val centers = points.map { sq ->
+    val vc = if (flipped) 7 - sq.col else sq.col
+    val vr = if (flipped) 7 - sq.row else sq.row
     Offset(
-      x = (sq.col + 0.5f) * cellSizePx,
-      y = (sq.row + 0.5f) * cellSizePx,
+      x = (vc + 0.5f) * cellSizePx,
+      y = (vr + 0.5f) * cellSizePx,
     )
   }
 

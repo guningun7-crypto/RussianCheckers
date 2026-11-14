@@ -50,7 +50,7 @@ object RewardCatalog {
     RewardBadge(
       id = "badge_tournament_ready",
       title = "Готов к турниру",
-      description = "Пройди все 12 уроков вместе со школой разрядника",
+      description = "Пройди все 17 уроков вместе со школой разрядника и дебютами",
       iconName = "military_tech",
     ),
     RewardBadge(
@@ -82,6 +82,18 @@ object RewardCatalog {
       title = "Юный стратег",
       description = "Победи на уровне «Хитрый Тактик» или выше",
       iconName = "military_tech",
+    ),
+    RewardBadge(
+      id = "badge_endgame_master",
+      title = "Мастер эндшпиля",
+      description = "Выиграй 3 эндшпиль-спарринга против бота",
+      iconName = "military_tech",
+    ),
+    RewardBadge(
+      id = "badge_rush_sprinter",
+      title = "Молниеносный тактик",
+      description = "Реши не меньше 8 задач в режиме «Штурм» за 3 минуты",
+      iconName = "psychology",
     ),
     RewardBadge(
       id = "badge_star_collector",

@@ -2,12 +2,21 @@ package com.example
 
 import com.example.domain.checkers.BotDifficulty
 import com.example.domain.checkers.CheckersBoard
+import com.example.domain.checkers.EloRatingCalculator
+import com.example.domain.checkers.GameAnalyzer
+import com.example.domain.checkers.GameOutcome
+import com.example.domain.checkers.OpeningBook
 import com.example.domain.checkers.PieceColor
+import com.example.domain.checkers.RecordedGameMove
 import com.example.domain.checkers.RussianCheckersEngine
 import com.example.domain.checkers.Square
+import com.example.domain.curriculum.DailyPuzzleHelper
+import com.example.domain.curriculum.EndgameCatalog
 import com.example.domain.curriculum.LessonCatalog
 import com.example.domain.curriculum.PuzzleCatalog
+import com.example.domain.curriculum.PuzzleDifficulty
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -84,8 +93,8 @@ class RussianCheckersEngineTest {
 
   @Test
   fun allLessonDemosAndExercises_are100PercentLegal() {
+    assertTrue(LessonCatalog.lessons.size >= 17)
     for (lesson in LessonCatalog.lessons) {
-      // Verify exercise accepted moves are all legal
       val exBoard = lesson.exerciseBoard()
       val legalEx = RussianCheckersEngine.getLegalMoves(exBoard, lesson.playerColor)
       val legalNotations = legalEx.map { it.notationString }.toSet()
@@ -101,7 +110,6 @@ class RussianCheckersEngineTest {
         )
       }
 
-      // Verify demo steps cleanly apply on demoBoard
       var demoBoard = lesson.demoBoard()
       for ((idx, step) in lesson.demoSteps.withIndex()) {
         val m = step.move ?: continue
@@ -170,25 +178,18 @@ class RussianCheckersEngineTest {
 
   @Test
   fun strongAiAvoidsForcedCounterCaptureTrap_andSolvesWithinBudget() {
-    // Black can make a greedy looking move or avoid a forced 2-piece counter-capture!
-    // Board: White at d2(6,3), f2(6,5); Black at d6(2,3) and a7(1,0).
-    // Even simpler: Black has b4(4,1) and f6(2,5); White has d4(4,3) and e3(5,4).
-    //Wait: test directly on a tactical shot where capturing leads to 2-for-1 loss vs safe move:
-    // Black b6(2,1) can move b6-c5 allowing White d4:b6:d8! Or move b6-a5 staying safe.
     val board = CheckersBoard.fromStrings(
       listOf(
         "........",
-        "..b.....", // c7 -> jumping from b6-c5 -> White d4:b6:d8! Wait d4(4,3), c5(3,2), b6(2,1)
-        ".b......", // b6
+        "..b.....",
+        ".b......",
         "........",
-        "...w....", // d4
-        "....w...", // e3
+        "...w....",
+        "....w...",
         "........",
         "........",
       )
     )
-    // If Black plays b6-c5, White plays d4:b6:d8! (Wait c7 is b, so b6 empty after d4:b6 and c7 -> d8!)
-    // Black plays b6-a5 instead! Let's check both moves are legal for Black.
     val legalBlack = RussianCheckersEngine.getLegalMoves(board, PieceColor.BLACK).map { it.notationString }
     assertTrue("b6–c5" in legalBlack)
     assertTrue("b6–a5" in legalBlack)
@@ -209,7 +210,96 @@ class RussianCheckersEngineTest {
   fun puzzleCatalog_contains20PuzzlesIncludingMasterTier() {
     assertTrue(PuzzleCatalog.puzzles.size >= 20)
     assertTrue(
-      PuzzleCatalog.puzzles.any { it.difficulty == com.example.domain.curriculum.PuzzleDifficulty.MASTER }
+      PuzzleCatalog.puzzles.any { it.difficulty == PuzzleDifficulty.MASTER }
     )
+  }
+
+  @Test
+  fun openingBookAndFlyingOpenings_are100PercentLegal() {
+    for (line in OpeningBook.bookLines) {
+      var board = CheckersBoard.initial()
+      var turn = PieceColor.WHITE
+      for ((idx, notation) in line.moves.withIndex()) {
+        val legal = RussianCheckersEngine.getLegalMoves(board, turn)
+        val move = legal.firstOrNull { it.notationString == notation }
+        assertNotNull("Opening ${line.name} ply $idx move $notation is illegal!", move)
+        board = RussianCheckersEngine.applyMove(board, move!!)
+        turn = turn.opposite()
+      }
+    }
+
+    for (setup in OpeningBook.flyingOpenings) {
+      val applied = OpeningBook.applyFlyingOpening(setup)
+      assertNotNull("Flying opening ${setup.name} failed to apply!", applied)
+      val whiteNext = RussianCheckersEngine.getLegalMoves(applied!!.first, PieceColor.WHITE)
+      assertTrue("Flying opening ${setup.name} has no legal white moves", whiteNext.isNotEmpty())
+    }
+
+    assertNotNull(OpeningBook.lookupBookMove(CheckersBoard.initial(), PieceColor.WHITE))
+  }
+
+  @Test
+  fun endgameScenarios_allHaveValidInitialBoardsAndMoves() {
+    assertEquals(6, EndgameCatalog.scenarios.size)
+    for (scenario in EndgameCatalog.scenarios) {
+      val board = scenario.initialBoard()
+      assertTrue(board.countPieces(PieceColor.WHITE) > 0)
+      assertTrue(board.countPieces(PieceColor.BLACK) > 0)
+      val legal = RussianCheckersEngine.getLegalMoves(board, PieceColor.WHITE)
+      assertTrue("Endgame ${scenario.id} has no legal White moves", legal.isNotEmpty())
+    }
+  }
+
+  @Test
+  fun eloCalculator_computesValidDeltasAndRanks() {
+    val (eloAfterWin, winDelta) = EloRatingCalculator.calculateGameDelta(
+      playerElo = 1000,
+      opponentElo = 1300,
+      outcome = GameOutcome.WIN,
+      hintsEnabled = false,
+    )
+    assertTrue(winDelta > 15)
+    assertEquals(1000 + winDelta, eloAfterWin)
+
+    val (_, lossDelta) = EloRatingCalculator.calculateGameDelta(
+      playerElo = 1400,
+      opponentElo = 1050,
+      outcome = GameOutcome.LOSS,
+      hintsEnabled = false,
+    )
+    assertTrue(lossDelta < 0)
+
+    assertEquals("Начинающий шашист", EloRatingCalculator.sportsRankForElo(1000).title)
+    assertEquals("Кандидат в мастера (КМС)", EloRatingCalculator.sportsRankForElo(2050).title)
+  }
+
+  @Test
+  fun boardHash_andGameAnalyzer_andDailyPuzzle_workAccurately() {
+    val start = CheckersBoard.initial()
+    assertNotEquals(
+      RussianCheckersEngine.boardHash(start, PieceColor.WHITE),
+      RussianCheckersEngine.boardHash(start, PieceColor.BLACK),
+    )
+
+    val firstMove = RussianCheckersEngine.getLegalMoves(start, PieceColor.WHITE).first()
+    val afterMove = RussianCheckersEngine.applyMove(start, firstMove)
+    val analyzed = GameAnalyzer.analyzeHistory(
+      moves = listOf(
+        RecordedGameMove(
+          plyIndex = 0,
+          moveNumber = 1,
+          mover = PieceColor.WHITE,
+          move = firstMove,
+          boardBefore = start,
+          boardAfter = afterMove,
+        )
+      ),
+      humanColor = PieceColor.WHITE,
+    )
+    assertEquals(1, analyzed.size)
+
+    val daily = DailyPuzzleHelper.pickDailyPuzzle(PuzzleCatalog.puzzles, "2026-317")
+    assertNotNull(daily)
+    assertTrue(daily!!.difficulty == PuzzleDifficulty.HARD || daily.difficulty == PuzzleDifficulty.MASTER)
   }
 }

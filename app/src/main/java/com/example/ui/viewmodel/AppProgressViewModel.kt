@@ -8,10 +8,13 @@ import com.example.data.local.PlayerStatsEntity
 import com.example.data.local.ProgressRepository
 import com.example.data.local.PuzzleProgressEntity
 import com.example.domain.checkers.BotDifficulty
+import com.example.domain.checkers.GameOutcome
+import com.example.domain.curriculum.DailyPuzzleHelper
 import com.example.domain.curriculum.InteractiveLesson
 import com.example.domain.curriculum.LessonCatalog
 import com.example.domain.curriculum.LogicPuzzle
 import com.example.domain.curriculum.PuzzleCatalog
+import com.example.domain.curriculum.PuzzleDifficulty
 import com.example.domain.curriculum.RewardBadge
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,11 +29,14 @@ data class AppProgressUiState(
   val puzzleProgress: Map<String, PuzzleProgressEntity> = emptyMap(),
   val stats: PlayerStatsEntity = PlayerStatsEntity(),
   val unlockedBadgeIds: Set<String> = emptySet(),
+  val endgamesSolvedIds: Set<String> = emptySet(),
   val allLessons: List<InteractiveLesson> = LessonCatalog.lessons,
   val allPuzzles: List<LogicPuzzle> = PuzzleCatalog.puzzles,
   val customLessonIds: Set<String> = emptySet(),
   val customPuzzleIds: Set<String> = emptySet(),
   val hintsEnabled: Boolean = true,
+  val todayDateKey: String = DailyPuzzleHelper.todayDateKey(),
+  val dailyPuzzleSolvedToday: Boolean = false,
 )
 
 class AppProgressViewModel(
@@ -52,16 +58,24 @@ class AppProgressViewModel(
       .split(",")
       .filter { it.isNotBlank() }
       .toSet()
+    val endgames = stats.endgamesSolvedCsv
+      .split(",")
+      .filter { it.isNotBlank() }
+      .toSet()
+    val todayKey = DailyPuzzleHelper.todayDateKey()
     AppProgressUiState(
       lessonProgress = lessons,
       puzzleProgress = puzzles,
       stats = stats,
       unlockedBadgeIds = badges,
+      endgamesSolvedIds = endgames,
       allLessons = LessonCatalog.lessons + customLessons,
       allPuzzles = PuzzleCatalog.puzzles + customPuzzles,
       customLessonIds = customLessons.map { it.id }.toSet(),
       customPuzzleIds = customPuzzles.map { it.id }.toSet(),
       hintsEnabled = settings.hintsEnabled,
+      todayDateKey = todayKey,
+      dailyPuzzleSolvedToday = stats.dailyPuzzleLastDate == todayKey,
     )
   }.stateIn(
     scope = viewModelScope,
@@ -72,6 +86,13 @@ class AppProgressViewModel(
   private val _pendingBadges = MutableStateFlow<List<RewardBadge>>(emptyList())
   val pendingBadges: StateFlow<List<RewardBadge>> = _pendingBadges.asStateFlow()
 
+  private val _lastGameEloDelta = MutableStateFlow<Int?>(null)
+  val lastGameEloDelta: StateFlow<Int?> = _lastGameEloDelta.asStateFlow()
+
+  fun clearLastGameEloDelta() {
+    _lastGameEloDelta.value = null
+  }
+
   fun onLessonCompleted(lessonId: String, starsAwarded: Int) {
     viewModelScope.launch {
       val newlyUnlocked = repository.recordLessonCompleted(lessonId, starsAwarded)
@@ -81,18 +102,52 @@ class AppProgressViewModel(
     }
   }
 
-  fun onPuzzleSolved(puzzleId: String, starsAwarded: Int, usedHint: Boolean) {
+  fun onPuzzleSolved(
+    puzzleId: String,
+    starsAwarded: Int,
+    usedHint: Boolean,
+    difficulty: PuzzleDifficulty? = null,
+    dailyDateKey: String? = null,
+  ) {
     viewModelScope.launch {
-      val newlyUnlocked = repository.recordPuzzleSolved(puzzleId, starsAwarded, usedHint)
+      val newlyUnlocked = repository.recordPuzzleSolved(
+        puzzleId = puzzleId,
+        starsAwarded = starsAwarded,
+        usedHint = usedHint,
+        puzzleDifficulty = difficulty,
+        dailyDateKey = dailyDateKey,
+      )
       if (newlyUnlocked.isNotEmpty()) {
         _pendingBadges.value = _pendingBadges.value + newlyUnlocked
       }
     }
   }
 
-  fun onGameFinished(won: Boolean, difficulty: BotDifficulty?, starsAwarded: Int) {
+  fun onGameFinished(
+    outcome: GameOutcome,
+    difficulty: BotDifficulty?,
+    starsAwarded: Int,
+    endgameScenarioId: String? = null,
+  ) {
     viewModelScope.launch {
-      val newlyUnlocked = repository.recordGameResult(won, difficulty, starsAwarded)
+      val hintsOn = uiState.value.hintsEnabled
+      val (newlyUnlocked, eloDelta) = repository.recordGameResult(
+        outcome = outcome,
+        difficulty = difficulty,
+        starsAwarded = starsAwarded,
+        hintsEnabled = hintsOn,
+        endgameScenarioId = endgameScenarioId,
+      )
+      _lastGameEloDelta.value = if (difficulty != null) eloDelta else null
+      if (newlyUnlocked.isNotEmpty()) {
+        _pendingBadges.value = _pendingBadges.value + newlyUnlocked
+      }
+    }
+  }
+
+  fun onPuzzleRushFinished(score: Int) {
+    viewModelScope.launch {
+      val newlyUnlocked = repository.recordPuzzleRushScore(score)
       if (newlyUnlocked.isNotEmpty()) {
         _pendingBadges.value = _pendingBadges.value + newlyUnlocked
       }
@@ -119,3 +174,4 @@ class AppProgressViewModel(
     }
   }
 }
+
