@@ -1,7 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,7 +59,7 @@ fun EndgameHubScreen(
   onBack: () -> Unit,
 ) {
   val scenarios = EndgameCatalog.scenarios
-  val solvedCount = scenarios.count { it.id in solvedEndgameIds }
+  val solvedCount = remember(solvedEndgameIds) { scenarios.count { it.id in solvedEndgameIds } }
 
   Scaffold(
     containerColor = MaterialTheme.colorScheme.background,
@@ -97,21 +98,24 @@ fun EndgameHubScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
       ) {
-        item {
+        item(key = "mascot", contentType = "mascot") {
           MascotSpeechCard(
             title = "Отработка окончаний ($solvedCount/${scenarios.size})",
             message = "Здесь нет длинного дебюта: сразу разыграй классический эндшпиль против сильного бота и доведи перевес до победы!",
           )
         }
 
-        items(scenarios, key = { it.id }) { scenario ->
+        items(
+          items = scenarios,
+          key = { it.id },
+          contentType = { "endgame_card" },
+        ) { scenario ->
           val solved = scenario.id in solvedEndgameIds
           Card(
+            onClick = { onStartEndgame(scenario.id, scenario.recommendedBot) },
             modifier = Modifier
               .fillMaxWidth()
-              .testTag("endgame_card_${scenario.id}")
-              .clip(RoundedCornerShape(20.dp))
-              .clickable { onStartEndgame(scenario.id, scenario.recommendedBot) },
+              .testTag("endgame_card_${scenario.id}"),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
               containerColor = if (solved) {
@@ -120,7 +124,8 @@ fun EndgameHubScreen(
                 MaterialTheme.colorScheme.surface
               },
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
           ) {
             Row(
               modifier = Modifier

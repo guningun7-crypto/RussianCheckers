@@ -102,6 +102,13 @@ class RussianCheckersEngineTest {
     val lessonErrors = mutableListOf<String>()
     for (lesson in LessonCatalog.lessons) {
       val exBoard = lesson.exerciseBoard()
+      for (r in 0..7) {
+        for (c in 0..7) {
+          if ((r + c) % 2 == 0 && exBoard[r, c] != null) {
+            lessonErrors.add("Lesson ${lesson.id} exercise has piece on WHITE square ${Square(r, c).notation} ($r,$c)")
+          }
+        }
+      }
       val legalEx = RussianCheckersEngine.getLegalMoves(exBoard, lesson.playerColor)
       val legalNotations = legalEx.map { it.notationString }.toSet()
 
@@ -115,6 +122,13 @@ class RussianCheckersEngineTest {
       }
 
       var demoBoard = lesson.demoBoard()
+      for (r in 0..7) {
+        for (c in 0..7) {
+          if ((r + c) % 2 == 0 && demoBoard[r, c] != null) {
+            lessonErrors.add("Lesson ${lesson.id} demo has piece on WHITE square ${Square(r, c).notation} ($r,$c)")
+          }
+        }
+      }
       for ((idx, step) in lesson.demoSteps.withIndex()) {
         val m = step.move ?: continue
         val moverColor = demoBoard[m.from]?.color
@@ -138,6 +152,13 @@ class RussianCheckersEngineTest {
     val puzzleErrors = mutableListOf<String>()
     for (puzzle in PuzzleCatalog.puzzles) {
       var board = puzzle.initialBoard()
+      for (r in 0..7) {
+        for (c in 0..7) {
+          if ((r + c) % 2 == 0 && board[r, c] != null) {
+            puzzleErrors.add("Puzzle ${puzzle.id} has piece on WHITE square ${Square(r, c).notation} ($r,$c)")
+          }
+        }
+      }
       for ((idx, step) in puzzle.steps.withIndex()) {
         val legal = RussianCheckersEngine.getLegalMoves(board, puzzle.playerColor)
         val legalNotations = legal.map { it.notationString }.toSet()
@@ -253,6 +274,13 @@ class RussianCheckersEngineTest {
     assertEquals(16, EndgameCatalog.scenarios.map { it.id }.toSet().size)
     for (scenario in EndgameCatalog.scenarios) {
       val board = scenario.initialBoard()
+      for (r in 0..7) {
+        for (c in 0..7) {
+          if ((r + c) % 2 == 0 && board[r, c] != null) {
+            org.junit.Assert.fail("Endgame ${scenario.id} has piece on WHITE square ${Square(r, c).notation} ($r,$c)")
+          }
+        }
+      }
       assertTrue(board.countPieces(PieceColor.WHITE) > 0)
       assertTrue(board.countPieces(PieceColor.BLACK) > 0)
       val legal = RussianCheckersEngine.getLegalMoves(board, PieceColor.WHITE)

@@ -98,25 +98,42 @@ fun CheckersBoardView(
   flipped: Boolean = false,
   onSquareClick: (Square) -> Unit = {},
 ) {
-  val infiniteTransition = rememberInfiniteTransition(label = "boardPulse")
-  val pulseProgress by infiniteTransition.animateFloat(
-    initialValue = 0f,
-    targetValue = 1f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
-      repeatMode = RepeatMode.Reverse,
-    ),
-    label = "pulse",
-  )
-  val hintTraveller by infiniteTransition.animateFloat(
-    initialValue = 0f,
-    targetValue = 1f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 1500, easing = LinearEasing),
-      repeatMode = RepeatMode.Restart,
-    ),
-    label = "hintTraveller",
-  )
+  val hasPulse = targetSquares.isNotEmpty() ||
+    mandatoryCaptureSources.isNotEmpty() ||
+    highlightedSquares.isNotEmpty() ||
+    animatedHint != null
+
+  val pulseProgress = if (hasPulse) {
+    val transition = rememberInfiniteTransition(label = "boardPulse")
+    val anim by transition.animateFloat(
+      initialValue = 0f,
+      targetValue = 1f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse,
+      ),
+      label = "pulse",
+    )
+    anim
+  } else {
+    0f
+  }
+
+  val hintTraveller = if (animatedHint != null) {
+    val transition = rememberInfiniteTransition(label = "boardHintTravel")
+    val anim by transition.animateFloat(
+      initialValue = 0f,
+      targetValue = 1f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(durationMillis = 1500, easing = LinearEasing),
+        repeatMode = RepeatMode.Restart,
+      ),
+      label = "hintTraveller",
+    )
+    anim
+  } else {
+    0f
+  }
 
   val celebrationAlpha by animateFloatAsState(
     targetValue = if (showCelebration) 1f else 0f,

@@ -1,8 +1,10 @@
 package com.example.domain.curriculum
 
+import androidx.compose.runtime.Immutable
 import com.example.domain.checkers.BotDifficulty
 import com.example.domain.checkers.CheckersBoard
 
+@Immutable
 data class EndgameScenario(
   val id: String,
   val order: Int,

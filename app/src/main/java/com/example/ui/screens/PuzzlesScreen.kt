@@ -1,7 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,11 +74,24 @@ fun PuzzlesScreen(
 ) {
   var selectedDifficulty by remember { mutableStateOf<PuzzleDifficulty?>(null) }
   val allPuzzles = progressState.allPuzzles
+  val puzzleProgress = progressState.puzzleProgress
+
   val filtered = remember(selectedDifficulty, allPuzzles) {
     if (selectedDifficulty == null) allPuzzles
     else allPuzzles.filter { it.difficulty == selectedDifficulty }
   }
-  val solvedCount = allPuzzles.count { progressState.puzzleProgress[it.id]?.solved == true }
+  val puzzleIndexById = remember(allPuzzles) {
+    allPuzzles.withIndex().associate { (index, p) -> p.id to (index + 1) }
+  }
+  val solvedCount = remember(allPuzzles, puzzleProgress) {
+    allPuzzles.count { puzzleProgress[it.id]?.solved == true }
+  }
+  val difficultyCounts = remember(allPuzzles) {
+    PuzzleDifficulty.entries.associateWith { diff -> allPuzzles.count { it.difficulty == diff } }
+  }
+  val dailyPuzzle = remember(allPuzzles, progressState.todayDateKey) {
+    DailyPuzzleHelper.pickDailyPuzzle(allPuzzles, progressState.todayDateKey)
+  }
 
   Box(
     modifier = modifier.fillMaxSize(),
@@ -91,7 +104,7 @@ fun PuzzlesScreen(
       contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      item {
+      item(key = "header", contentType = "header") {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
@@ -112,7 +125,7 @@ fun PuzzlesScreen(
         }
       }
 
-      item {
+      item(key = "mascot", contentType = "mascot") {
         MascotSpeechCard(
           title = "Тренировка ума",
           message = if (hintsEnabled) {
@@ -123,16 +136,14 @@ fun PuzzlesScreen(
         )
       }
 
-      val dailyPuzzle = DailyPuzzleHelper.pickDailyPuzzle(allPuzzles, progressState.todayDateKey)
       if (dailyPuzzle != null) {
-        item {
+        item(key = "daily_puzzle", contentType = "daily_puzzle") {
           val solvedToday = progressState.dailyPuzzleSolvedToday
           Card(
+            onClick = { onPuzzleClick(dailyPuzzle.id, true) },
             modifier = Modifier
               .fillMaxWidth()
-              .testTag("daily_puzzle_card")
-              .clip(RoundedCornerShape(20.dp))
-              .clickable { onPuzzleClick(dailyPuzzle.id, true) },
+              .testTag("daily_puzzle_card"),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
               containerColor = if (solvedToday) {
@@ -141,6 +152,7 @@ fun PuzzlesScreen(
                 MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.78f)
               },
             ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
           ) {
             Row(
               modifier = Modifier
@@ -180,19 +192,19 @@ fun PuzzlesScreen(
         }
       }
 
-      item {
+      item(key = "quick_modes", contentType = "quick_modes") {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
           Card(
+            onClick = onStartPuzzleRush,
             modifier = Modifier
               .weight(1f)
-              .testTag("puzzle_rush_entry_card")
-              .clip(RoundedCornerShape(18.dp))
-              .clickable(onClick = onStartPuzzleRush),
+              .testTag("puzzle_rush_entry_card"),
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
           ) {
             Column(
               modifier = Modifier.padding(14.dp),
@@ -217,13 +229,13 @@ fun PuzzlesScreen(
           }
 
           Card(
+            onClick = onOpenEndgameHub,
             modifier = Modifier
               .weight(1f)
-              .testTag("puzzles_endgame_entry_card")
-              .clip(RoundedCornerShape(18.dp))
-              .clickable(onClick = onOpenEndgameHub),
+              .testTag("puzzles_endgame_entry_card"),
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
           ) {
             Column(
               modifier = Modifier.padding(14.dp),
@@ -249,14 +261,14 @@ fun PuzzlesScreen(
         }
       }
 
-      item {
+      item(key = "hints_toggle", contentType = "hints") {
         HintsModeCard(
           hintsEnabled = hintsEnabled,
           onToggle = onToggleHints,
         )
       }
 
-      item {
+      item(key = "difficulty_filters", contentType = "filters") {
         FlowRow(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -268,7 +280,7 @@ fun PuzzlesScreen(
             modifier = Modifier.testTag("puzzle_filter_all"),
           )
           PuzzleDifficulty.entries.forEach { diff ->
-            val diffCount = allPuzzles.count { it.difficulty == diff }
+            val diffCount = difficultyCounts[diff] ?: 0
             FilterChip(
               selected = selectedDifficulty == diff,
               onClick = { selectedDifficulty = if (selectedDifficulty == diff) null else diff },
@@ -279,17 +291,23 @@ fun PuzzlesScreen(
         }
       }
 
-      items(filtered, key = { it.id }) { puzzle ->
+      items(
+        items = filtered,
+        key = { it.id },
+        contentType = { "puzzle_card" },
+      ) { puzzle ->
         PuzzleCard(
           puzzle = puzzle,
-          displayNumber = allPuzzles.indexOfFirst { it.id == puzzle.id }.let { if (it >= 0) it + 1 else puzzle.order },
+          displayNumber = puzzleIndexById[puzzle.id] ?: puzzle.order,
           isCustom = puzzle.id in progressState.customPuzzleIds,
-          progress = progressState.puzzleProgress[puzzle.id],
+          progress = puzzleProgress[puzzle.id],
           onClick = { onPuzzleClick(puzzle.id, false) },
         )
       }
 
-      item { Spacer(modifier = Modifier.height(12.dp)) }
+      item(key = "bottom_spacer", contentType = "spacer") {
+        Spacer(modifier = Modifier.height(12.dp))
+      }
     }
   }
 }
@@ -311,11 +329,10 @@ private fun PuzzleCard(
   }
 
   Card(
+    onClick = onClick,
     modifier = Modifier
       .fillMaxWidth()
-      .testTag("puzzle_card_${puzzle.id}")
-      .clip(RoundedCornerShape(20.dp))
-      .clickable(onClick = onClick),
+      .testTag("puzzle_card_${puzzle.id}"),
     shape = RoundedCornerShape(20.dp),
     colors = CardDefaults.cardColors(
       containerColor = if (solved) {
@@ -324,7 +341,8 @@ private fun PuzzleCard(
         MaterialTheme.colorScheme.surface
       },
     ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
   ) {
     Row(
       modifier = Modifier

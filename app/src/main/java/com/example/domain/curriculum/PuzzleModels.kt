@@ -1,5 +1,6 @@
 package com.example.domain.curriculum
 
+import androidx.compose.runtime.Immutable
 import com.example.domain.checkers.CheckersBoard
 import com.example.domain.checkers.CheckersMove
 import com.example.domain.checkers.PieceColor
@@ -11,6 +12,7 @@ enum class PuzzleDifficulty(val label: String, val starsReward: Int) {
   MASTER("Мастер", 5),
 }
 
+@Immutable
 data class PuzzleStep(
   val acceptedNotations: Set<String>,
   val hintMove: CheckersMove,
@@ -19,6 +21,7 @@ data class PuzzleStep(
   val replyCaption: String? = null,
 )
 
+@Immutable
 data class LogicPuzzle(
   val id: String,
   val order: Int,

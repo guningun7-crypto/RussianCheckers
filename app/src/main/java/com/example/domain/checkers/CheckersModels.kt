@@ -1,5 +1,7 @@
 package com.example.domain.checkers
 
+import androidx.compose.runtime.Immutable
+
 enum class PieceColor {
   WHITE,
   BLACK;
@@ -7,11 +9,13 @@ enum class PieceColor {
   fun opposite(): PieceColor = if (this == WHITE) BLACK else WHITE
 }
 
+@Immutable
 data class Piece(
   val color: PieceColor,
   val isKing: Boolean = false,
 )
 
+@Immutable
 data class Square(val row: Int, val col: Int) {
   val isInBounds: Boolean get() = row in 0..7 && col in 0..7
   val isPlayable: Boolean get() = isInBounds && (row + col) % 2 == 1
@@ -33,6 +37,7 @@ data class Square(val row: Int, val col: Int) {
   }
 }
 
+@Immutable
 data class MoveStep(
   val from: Square,
   val to: Square,
@@ -40,6 +45,7 @@ data class MoveStep(
   val promotedToKing: Boolean = false,
 )
 
+@Immutable
 data class CheckersMove(
   val steps: List<MoveStep>,
 ) {
@@ -84,6 +90,7 @@ data class CheckersMove(
   }
 }
 
+@Immutable
 data class CheckersBoard(
   val cells: List<Piece?> = List(64) { null },
 ) {

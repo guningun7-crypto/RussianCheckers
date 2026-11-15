@@ -1,5 +1,6 @@
 package com.example.domain.curriculum
 
+import androidx.compose.runtime.Immutable
 import com.example.domain.checkers.CheckersBoard
 import com.example.domain.checkers.CheckersMove
 import com.example.domain.checkers.PieceColor
@@ -20,12 +21,14 @@ enum class LessonFolder(val title: String, val subtitle: String, val badgeText: 
   GRANDMASTER("Гроссмейстер", "15 уроков и задач: цугцванг, многоходовые каскады и эндшпиль", "Гросс"),
 }
 
+@Immutable
 data class DemoStep(
   val caption: String,
   val move: CheckersMove? = null,
   val highlightSquares: List<Square> = emptyList(),
 )
 
+@Immutable
 data class InteractiveLesson(
   val id: String,
   val order: Int,
@@ -271,7 +274,7 @@ object LessonCatalog {
         "........",
         "........",
         "........",
-        ".......b",
+        "......b.",
       ),
       demoSteps = listOf(
         DemoStep(
@@ -296,7 +299,7 @@ object LessonCatalog {
         "........",
         "........",
         "........",
-        "b.......",
+        ".b......",
         "........",
       ),
       acceptedMoveNotations = setOf("e7–d8", "e7–f8"),

@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,7 +67,8 @@ fun MascotSpeechCard(
     modifier = modifier.fillMaxWidth(),
     shape = RoundedCornerShape(20.dp),
     colors = CardDefaults.cardColors(containerColor = containerColor),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
   ) {
     Row(
       modifier = Modifier.padding(14.dp),
@@ -109,7 +111,7 @@ fun StarCounterPill(
     modifier = modifier,
     shape = RoundedCornerShape(50),
     color = MaterialTheme.colorScheme.tertiaryContainer,
-    tonalElevation = 2.dp,
+    tonalElevation = 1.dp,
   ) {
     Row(
       modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -182,7 +184,8 @@ fun HintsModeCard(
         MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
       },
     ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
   ) {
     Row(
       modifier = Modifier

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -170,11 +171,12 @@ fun PlayHubScreen(
       }
 
       // Match Options Card: Color, Clock, Flying Checkers
-      item {
+      item(key = "match_options", contentType = "match_options") {
         Card(
           shape = RoundedCornerShape(20.dp),
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
           modifier = Modifier.fillMaxWidth(),
         ) {
           Column(
@@ -273,7 +275,11 @@ fun PlayHubScreen(
         )
       }
 
-      items(BotDifficulty.entries, key = { it.name }) { diff ->
+      items(
+        items = BotDifficulty.entries,
+        key = { it.name },
+        contentType = { "bot_card" },
+      ) { diff ->
         val isUnlocked = totalStars >= diff.requiredStarsToUnlock
         val botElo = EloRatingCalculator.botEloFor(diff)
         val levelColor = when (diff) {
@@ -285,13 +291,11 @@ fun PlayHubScreen(
         }
 
         Card(
+          onClick = { onStartBotMatch(diff, colorPref, timeControl, flyingCheckers) },
+          enabled = isUnlocked,
           modifier = Modifier
             .fillMaxWidth()
-            .testTag("play_difficulty_${diff.name}")
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(enabled = isUnlocked) {
-              onStartBotMatch(diff, colorPref, timeControl, flyingCheckers)
-            },
+            .testTag("play_difficulty_${diff.name}"),
           shape = RoundedCornerShape(20.dp),
           colors = CardDefaults.cardColors(
             containerColor = if (isUnlocked) {
@@ -300,7 +304,8 @@ fun PlayHubScreen(
               MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
             },
           ),
-          elevation = CardDefaults.cardElevation(defaultElevation = if (isUnlocked) 3.dp else 0.dp),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
           Row(
             modifier = Modifier

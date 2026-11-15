@@ -1,8 +1,7 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -69,16 +67,26 @@ fun LessonsScreen(
   modifier: Modifier = Modifier,
 ) {
   val lessons = progressState.allLessons
-  val completedCount = lessons.count { progressState.lessonProgress[it.id]?.completed == true }
-  val nextRecommendedId = lessons.firstOrNull { progressState.lessonProgress[it.id]?.completed != true }?.id
-  val rank = RewardCatalog.rankForStars(progressState.stats.totalStars)
+  val lessonProgress = progressState.lessonProgress
+  val totalStars = progressState.stats.totalStars
 
-  val builtInLessons = lessons.filterNot { it.id in progressState.customLessonIds }
-  val customLessons = lessons.filter { it.id in progressState.customLessonIds }
+  val completedCount = remember(lessons, lessonProgress) {
+    lessons.count { lessonProgress[it.id]?.completed == true }
+  }
+  val nextRecommendedId = remember(lessons, lessonProgress) {
+    lessons.firstOrNull { lessonProgress[it.id]?.completed != true }?.id
+  }
+  val rank = remember(totalStars) { RewardCatalog.rankForStars(totalStars) }
 
-  val folderMap = LessonFolder.entries.mapNotNull { folder ->
-    val list = builtInLessons.filter { it.folder == folder }
-    if (list.isEmpty()) null else folder to list
+  val folderMap = remember(lessons, progressState.customLessonIds) {
+    val builtIn = lessons.filterNot { it.id in progressState.customLessonIds }
+    LessonFolder.entries.mapNotNull { folder ->
+      val list = builtIn.filter { it.folder == folder }
+      if (list.isEmpty()) null else folder to list
+    }
+  }
+  val customLessons = remember(lessons, progressState.customLessonIds) {
+    lessons.filter { it.id in progressState.customLessonIds }
   }
 
   // «Для начинающих» свёрнута по умолчанию; новые папки раскрываются по нажатию
@@ -102,7 +110,7 @@ fun LessonsScreen(
       contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      item {
+      item(key = "header", contentType = "header") {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
@@ -121,11 +129,11 @@ fun LessonsScreen(
               fontWeight = FontWeight.Bold,
             )
           }
-          StarCounterPill(stars = progressState.stats.totalStars)
+          StarCounterPill(stars = totalStars)
         }
       }
 
-      item {
+      item(key = "mascot", contentType = "mascot") {
         val mascotMsg = when {
           completedCount == 0 -> "Привет! Я Совёнок Шашик. Базовые 17 уроков собраны в папке «Для начинающих», а ниже ждут уроки «Хитрый Тактик» и «Гроссмейстер»!"
           completedCount < lessons.size -> "Ты уже прошёл $completedCount из ${lessons.size} уроков! Выбирай папку под свой уровень и зарабатывай звёзды!"
@@ -134,17 +142,18 @@ fun LessonsScreen(
         MascotSpeechCard(message = mascotMsg)
       }
 
-      item {
+      item(key = "hints_toggle", contentType = "hints") {
         HintsModeCard(
           hintsEnabled = hintsEnabled,
           onToggle = onToggleHints,
         )
       }
 
-      item {
+      item(key = "overall_progress", contentType = "progress") {
         Card(
           shape = RoundedCornerShape(18.dp),
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+          elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
           Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -178,14 +187,16 @@ fun LessonsScreen(
 
       folderMap.forEach { (folder, folderLessons) ->
         val isExpanded = expandedFolders[folder.name] ?: false
-        val folderDone = folderLessons.count { progressState.lessonProgress[it.id]?.completed == true }
         val accentColor = when (folder) {
           LessonFolder.BEGINNER -> ForestEmerald
           LessonFolder.TACTICIAN -> TerracottaOrange
           LessonFolder.GRANDMASTER -> CoralAlert
         }
 
-        item(key = "folder_${folder.name}") {
+        item(key = "folder_${folder.name}", contentType = "folder_header") {
+          val folderDone = remember(folderLessons, lessonProgress) {
+            folderLessons.count { lessonProgress[it.id]?.completed == true }
+          }
           LessonFolderCard(
             title = folder.title,
             subtitle = folder.subtitle,
@@ -200,24 +211,28 @@ fun LessonsScreen(
         }
 
         if (isExpanded) {
-          items(folderLessons, key = { it.id }) { lesson ->
-            AnimatedVisibility(visible = true) {
-              LessonCard(
-                lesson = lesson,
-                progress = progressState.lessonProgress[lesson.id],
-                isRecommended = lesson.id == nextRecommendedId,
-                isCustom = false,
-                onClick = { onLessonClick(lesson.id) },
-              )
-            }
+          items(
+            items = folderLessons,
+            key = { it.id },
+            contentType = { "lesson_card" },
+          ) { lesson ->
+            LessonCard(
+              lesson = lesson,
+              progress = lessonProgress[lesson.id],
+              isRecommended = lesson.id == nextRecommendedId,
+              isCustom = false,
+              onClick = { onLessonClick(lesson.id) },
+            )
           }
         }
       }
 
       if (customLessons.isNotEmpty()) {
         val customExpanded = expandedFolders["CUSTOM"] ?: true
-        val customDone = customLessons.count { progressState.lessonProgress[it.id]?.completed == true }
-        item(key = "folder_CUSTOM") {
+        item(key = "folder_CUSTOM", contentType = "folder_header") {
+          val customDone = remember(customLessons, lessonProgress) {
+            customLessons.count { lessonProgress[it.id]?.completed == true }
+          }
           LessonFolderCard(
             title = "Загруженные уроки",
             subtitle = "Импортированные уроки из пакетов обновлений",
@@ -231,10 +246,14 @@ fun LessonsScreen(
           )
         }
         if (customExpanded) {
-          items(customLessons, key = { it.id }) { lesson ->
+          items(
+            items = customLessons,
+            key = { it.id },
+            contentType = { "lesson_card" },
+          ) { lesson ->
             LessonCard(
               lesson = lesson,
-              progress = progressState.lessonProgress[lesson.id],
+              progress = lessonProgress[lesson.id],
               isRecommended = lesson.id == nextRecommendedId,
               isCustom = true,
               onClick = { onLessonClick(lesson.id) },
@@ -243,7 +262,9 @@ fun LessonsScreen(
         }
       }
 
-      item { Spacer(modifier = Modifier.height(12.dp)) }
+      item(key = "bottom_spacer", contentType = "spacer") {
+        Spacer(modifier = Modifier.height(12.dp))
+      }
     }
   }
 }
@@ -261,11 +282,10 @@ private fun LessonFolderCard(
   onToggle: () -> Unit,
 ) {
   Card(
+    onClick = onToggle,
     modifier = Modifier
       .fillMaxWidth()
-      .testTag(testTag)
-      .clip(RoundedCornerShape(20.dp))
-      .clickable(onClick = onToggle),
+      .testTag(testTag),
     shape = RoundedCornerShape(20.dp),
     colors = CardDefaults.cardColors(
       containerColor = if (expanded) {
@@ -274,7 +294,11 @@ private fun LessonFolderCard(
         MaterialTheme.colorScheme.surface
       },
     ),
-    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    border = BorderStroke(
+      width = 1.dp,
+      color = if (expanded) accentColor.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    ),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
   ) {
     Column(
       modifier = Modifier
@@ -371,11 +395,10 @@ private fun LessonCard(
 ) {
   val completed = progress?.completed == true
   Card(
+    onClick = onClick,
     modifier = Modifier
       .fillMaxWidth()
-      .testTag("lesson_card_${lesson.id}")
-      .clip(RoundedCornerShape(20.dp))
-      .clickable(onClick = onClick),
+      .testTag("lesson_card_${lesson.id}"),
     shape = RoundedCornerShape(20.dp),
     colors = CardDefaults.cardColors(
       containerColor = if (completed) {
@@ -384,7 +407,15 @@ private fun LessonCard(
         MaterialTheme.colorScheme.surface
       },
     ),
-    elevation = CardDefaults.cardElevation(defaultElevation = if (isRecommended) 4.dp else 1.dp),
+    border = BorderStroke(
+      width = if (isRecommended && !completed) 1.5.dp else 1.dp,
+      color = if (isRecommended && !completed) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+      } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+      },
+    ),
+    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
   ) {
     Row(
       modifier = Modifier
