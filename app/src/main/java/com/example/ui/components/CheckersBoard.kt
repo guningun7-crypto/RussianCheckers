@@ -23,21 +23,25 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -46,6 +50,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -53,6 +58,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.checkers.CheckersBoard
@@ -130,23 +136,25 @@ fun CheckersBoardView(
           colors = listOf(BoardFrameHighlight, BoardFrameWood)
         )
       )
-      .padding(14.dp),
+      .padding(12.dp),
     contentAlignment = Alignment.Center,
   ) {
-    val frameContentSize = minOf(maxWidth, maxHeight)
-    val labelMargin = 16.dp
-    val gridSizeDp = frameContentSize - labelMargin * 2
-    val cellSizeDp = gridSizeDp / 8f
+    val labelThickness = 18.dp
     val density = LocalDensity.current
-    val cellSizePx = with(density) { cellSizeDp.toPx() }
+    var gridSizePx by remember { mutableStateOf(IntSize.Zero) }
 
     Column(
       modifier = Modifier.fillMaxSize(),
       horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.SpaceBetween,
     ) {
       // Top file labels
-      FileLabelsRow(flipped = flipped, modifier = Modifier.padding(horizontal = labelMargin))
+      FileLabelsRow(
+        flipped = flipped,
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(labelThickness)
+          .padding(horizontal = labelThickness),
+      )
 
       Row(
         modifier = Modifier
@@ -155,176 +163,234 @@ fun CheckersBoardView(
         verticalAlignment = Alignment.CenterVertically,
       ) {
         // Left rank labels
-        RankLabelsColumn(flipped = flipped, modifier = Modifier.widthIn(min = labelMargin))
+        RankLabelsColumn(
+          flipped = flipped,
+          modifier = Modifier
+            .width(labelThickness)
+            .fillMaxHeight(),
+        )
 
-        // 8x8 Playable Grid
+        // Centered square playable container with border outside the 8x8 inner box
         Box(
           modifier = Modifier
-            .size(gridSizeDp)
-            .clip(RoundedCornerShape(8.dp))
-            .border(2.dp, Color(0xFF3A2218), RoundedCornerShape(8.dp)),
+            .weight(1f)
+            .fillMaxHeight(),
+          contentAlignment = Alignment.Center,
         ) {
-          // Draw squares + highlight indicators
-          Column(modifier = Modifier.fillMaxSize()) {
-            for (vr in 0..7) {
-              Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                for (vc in 0..7) {
-                  val r = if (flipped) 7 - vr else vr
-                  val c = if (flipped) 7 - vc else vc
-                  val sq = Square(r, c)
-                  val isDark = sq.isPlayable
-                  val isSelected = selectedSquare == sq
-                  val isTarget = sq in targetSquares
-                  val isMandatorySource = sq in mandatoryCaptureSources
-                  val isHighlighted = sq in highlightedSquares
-                  val isLastMoveEnd = lastMove != null && (lastMove.from == sq || lastMove.to == sq)
-                  val isHintEnd = animatedHint != null && (animatedHint.from == sq || animatedHint.to == sq)
+          Box(
+            modifier = Modifier
+              .fillMaxSize()
+              .aspectRatio(1f)
+              .clip(RoundedCornerShape(8.dp))
+              .border(2.dp, Color(0xFF3A2218), RoundedCornerShape(8.dp))
+              .padding(2.dp),
+          ) {
+            // Exact borderless 8x8 inner coordinate grid shared by squares, pieces, and hints
+            Box(
+              modifier = Modifier
+                .fillMaxSize()
+                .onSizeChanged { gridSizePx = it },
+            ) {
+              // 1) Draw all 64 squares + cell overlays in a single pixel-accurate Canvas
+              Canvas(modifier = Modifier.fillMaxSize()) {
+                val cellW = size.width / 8f
+                val cellH = size.height / 8f
+                val rBase = minOf(cellW, cellH) / 2f
 
-                  val squareBg = when {
-                    !isDark -> BoardLightSquare
-                    isSelected -> Color(0xFF6B8E4E)
-                    isLastMoveEnd -> Color(0xFFA06B43)
-                    else -> BoardDarkSquare
-                  }
+                for (vr in 0..7) {
+                  for (vc in 0..7) {
+                    val r = if (flipped) 7 - vr else vr
+                    val c = if (flipped) 7 - vc else vc
+                    val sq = Square(r, c)
+                    val isDark = sq.isPlayable
+                    val isSelected = selectedSquare == sq
+                    val isTarget = sq in targetSquares
+                    val isMandatorySource = sq in mandatoryCaptureSources
+                    val isHighlighted = sq in highlightedSquares
+                    val isLastMoveEnd = lastMove != null && (lastMove.from == sq || lastMove.to == sq)
+                    val isHintEnd = animatedHint != null && (animatedHint.from == sq || animatedHint.to == sq)
 
-                  Box(
-                    modifier = Modifier
-                      .weight(1f)
-                      .fillMaxHeight()
-                      .background(squareBg)
-                      .testTag("board_square_${sq.notation}")
-                      .semantics {
-                        contentDescription = "Клетка ${sq.notation}"
-                      }
-                      .then(
-                        if (interactive && isDark) {
-                          Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            role = Role.Button,
-                            onClick = { onSquareClick(sq) },
-                          )
-                        } else {
-                          Modifier
-                        }
-                      ),
-                    contentAlignment = Alignment.Center,
-                  ) {
-                    // Draw square overlays (mandatory ring, target indicator, lesson highlight, hint glow)
+                    val squareBg = when {
+                      !isDark -> BoardLightSquare
+                      isSelected -> Color(0xFF6B8E4E)
+                      isLastMoveEnd -> Color(0xFFA06B43)
+                      else -> BoardDarkSquare
+                    }
+
+                    val left = vc * cellW
+                    val top = vr * cellH
+                    drawRect(
+                      color = squareBg,
+                      topLeft = Offset(left, top),
+                      size = Size(cellW + 0.75f, cellH + 0.75f),
+                    )
+
                     if (isDark) {
-                      Canvas(modifier = Modifier.fillMaxSize()) {
-                        val center = Offset(size.width / 2f, size.height / 2f)
-                        val rBase = size.minDimension / 2f
+                      val center = Offset(left + cellW / 2f, top + cellH / 2f)
 
-                        if (isMandatorySource && !isSelected) {
-                          drawCircle(
-                            color = TerracottaOrange.copy(alpha = 0.55f + 0.35f * pulseProgress),
-                            radius = rBase * (0.82f + 0.08f * pulseProgress),
-                            style = Stroke(width = size.minDimension * 0.08f),
-                          )
-                        }
+                      if (isMandatorySource && !isSelected) {
+                        drawCircle(
+                          color = TerracottaOrange.copy(alpha = 0.55f + 0.35f * pulseProgress),
+                          radius = rBase * (0.82f + 0.08f * pulseProgress),
+                          center = center,
+                          style = Stroke(width = minOf(cellW, cellH) * 0.08f),
+                        )
+                      }
 
-                        if (isHighlighted) {
-                          drawCircle(
-                            color = HintGlowGold.copy(alpha = 0.45f + 0.35f * pulseProgress),
-                            radius = rBase * 0.78f,
-                            style = Stroke(width = size.minDimension * 0.09f),
-                          )
-                        }
+                      if (isHighlighted) {
+                        drawCircle(
+                          color = HintGlowGold.copy(alpha = 0.45f + 0.35f * pulseProgress),
+                          radius = rBase * 0.78f,
+                          center = center,
+                          style = Stroke(width = minOf(cellW, cellH) * 0.09f),
+                        )
+                      }
 
-                        if (isHintEnd) {
-                          drawCircle(
-                            color = HintGlowGold.copy(alpha = 0.30f + 0.35f * pulseProgress),
-                            radius = rBase * 0.88f,
-                          )
-                        }
+                      if (isHintEnd) {
+                        drawCircle(
+                          color = HintGlowGold.copy(alpha = 0.30f + 0.35f * pulseProgress),
+                          radius = rBase * 0.88f,
+                          center = center,
+                        )
+                      }
 
-                        if (isTarget) {
-                          if (board[sq] == null) {
-                            drawCircle(
-                              color = ForestEmerald.copy(alpha = 0.88f),
-                              radius = rBase * (0.30f + 0.06f * pulseProgress),
-                            )
-                            drawCircle(
-                              color = Color.White.copy(alpha = 0.75f),
-                              radius = rBase * 0.14f,
-                            )
-                          }
-                        }
+                      if (isTarget && board[sq] == null) {
+                        drawCircle(
+                          color = ForestEmerald.copy(alpha = 0.88f),
+                          radius = rBase * (0.30f + 0.06f * pulseProgress),
+                          center = center,
+                        )
+                        drawCircle(
+                          color = Color.White.copy(alpha = 0.75f),
+                          radius = rBase * 0.14f,
+                          center = center,
+                        )
                       }
                     }
                   }
                 }
               }
-            }
-          }
 
-          // Render Checkers Pieces with smooth tactile styling & selection bounce
-          for (r in 0..7) {
-            for (c in 0..7) {
-              val sq = Square(r, c)
-              val piece = board[sq] ?: continue
-              val isSelected = selectedSquare == sq
-              val scaleBoost by animateFloatAsState(
-                targetValue = if (isSelected) 1.12f else 1.0f,
-                animationSpec = spring(dampingRatio = 0.55f, stiffness = 420f),
-                label = "pieceScale_${r}_$c",
-              )
-
-              val visualRow = if (flipped) 7 - r else r
-              val visualCol = if (flipped) 7 - c else c
-
-              Box(
-                modifier = Modifier
-                  .offset {
-                    IntOffset(
-                      x = (visualCol * cellSizePx).roundToInt(),
-                      y = (visualRow * cellSizePx).roundToInt(),
-                    )
+              // 2) Transparent tap/semantics grid aligned identically with the 8x8 Canvas
+              Column(modifier = Modifier.fillMaxSize()) {
+                for (vr in 0..7) {
+                  Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    for (vc in 0..7) {
+                      val r = if (flipped) 7 - vr else vr
+                      val c = if (flipped) 7 - vc else vc
+                      val sq = Square(r, c)
+                      val isDark = sq.isPlayable
+                      Box(
+                        modifier = Modifier
+                          .weight(1f)
+                          .fillMaxHeight()
+                          .testTag("board_square_${sq.notation}")
+                          .semantics {
+                            contentDescription = "Клетка ${sq.notation}"
+                          }
+                          .then(
+                            if (interactive && isDark) {
+                              Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                role = Role.Button,
+                                onClick = { onSquareClick(sq) },
+                              )
+                            } else {
+                              Modifier
+                            }
+                          ),
+                      )
+                    }
                   }
-                  .size(cellSizeDp),
-                contentAlignment = Alignment.Center,
-              ) {
-                CheckerPieceCanvas(
-                  piece = piece,
-                  scale = scaleBoost,
-                  isSelected = isSelected,
-                  modifier = Modifier.fillMaxSize(0.82f),
-                )
+                }
               }
-            }
-          }
 
-          // Animated Hint Overlay (Golden dashed path + arrowheads + travelling spark)
-          if (animatedHint != null) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-              drawAnimatedHintOverlay(
-                move = animatedHint,
-                cellSizePx = size.width / 8f,
-                pulse = pulseProgress,
-                traveller = hintTraveller,
-                flipped = flipped,
-              )
-            }
-          }
+              // 3) Checkers Pieces placed dead-center using exact measured cell pixel bounds
+              if (gridSizePx.width > 0 && gridSizePx.height > 0) {
+                val cellW = gridSizePx.width / 8f
+                val cellH = gridSizePx.height / 8f
 
-          // Celebration Sparkle Burst on solving lesson/puzzle
-          if (celebrationAlpha > 0.02f) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-              drawCelebrationBurst(
-                alpha = celebrationAlpha,
-                phase = pulseProgress,
-              )
+                for (r in 0..7) {
+                  for (c in 0..7) {
+                    val sq = Square(r, c)
+                    val piece = board[sq] ?: continue
+                    val isSelected = selectedSquare == sq
+                    val scaleBoost by animateFloatAsState(
+                      targetValue = if (isSelected) 1.12f else 1.0f,
+                      animationSpec = spring(dampingRatio = 0.55f, stiffness = 420f),
+                      label = "pieceScale_${r}_$c",
+                    )
+
+                    val visualRow = if (flipped) 7 - r else r
+                    val visualCol = if (flipped) 7 - c else c
+                    val x0 = (visualCol * cellW).roundToInt()
+                    val y0 = (visualRow * cellH).roundToInt()
+                    val x1 = ((visualCol + 1) * cellW).roundToInt()
+                    val y1 = ((visualRow + 1) * cellH).roundToInt()
+                    val cellWidthDp = with(density) { (x1 - x0).coerceAtLeast(1).toDp() }
+                    val cellHeightDp = with(density) { (y1 - y0).coerceAtLeast(1).toDp() }
+
+                    Box(
+                      modifier = Modifier
+                        .offset { IntOffset(x = x0, y = y0) }
+                        .size(width = cellWidthDp, height = cellHeightDp),
+                      contentAlignment = Alignment.Center,
+                    ) {
+                      CheckerPieceCanvas(
+                        piece = piece,
+                        scale = scaleBoost,
+                        isSelected = isSelected,
+                        modifier = Modifier.fillMaxSize(0.80f),
+                      )
+                    }
+                  }
+                }
+              }
+
+              // 4) Animated Hint Overlay (Golden dashed path + arrowheads + travelling spark)
+              if (animatedHint != null) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                  drawAnimatedHintOverlay(
+                    move = animatedHint,
+                    cellSizePx = size.width / 8f,
+                    pulse = pulseProgress,
+                    traveller = hintTraveller,
+                    flipped = flipped,
+                  )
+                }
+              }
+
+              // 5) Celebration Sparkle Burst on solving lesson/puzzle
+              if (celebrationAlpha > 0.02f) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                  drawCelebrationBurst(
+                    alpha = celebrationAlpha,
+                    phase = pulseProgress,
+                  )
+                }
+              }
             }
           }
         }
 
         // Right rank labels
-        RankLabelsColumn(flipped = flipped, modifier = Modifier.widthIn(min = labelMargin))
+        RankLabelsColumn(
+          flipped = flipped,
+          modifier = Modifier
+            .width(labelThickness)
+            .fillMaxHeight(),
+        )
       }
 
       // Bottom file labels
-      FileLabelsRow(flipped = flipped, modifier = Modifier.padding(horizontal = labelMargin))
+      FileLabelsRow(
+        flipped = flipped,
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(labelThickness)
+          .padding(horizontal = labelThickness),
+      )
     }
   }
 }
@@ -336,16 +402,24 @@ private fun FileLabelsRow(
 ) {
   val files = if (flipped) ('H' downTo 'A') else ('A'..'H')
   Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceAround,
+    modifier = modifier,
+    verticalAlignment = Alignment.CenterVertically,
   ) {
     files.forEach { ch ->
-      Text(
-        text = ch.toString(),
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color(0xFFF3DEC0),
-      )
+      Box(
+        modifier = Modifier
+          .weight(1f)
+          .fillMaxHeight(),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          text = ch.toString(),
+          fontSize = 10.sp,
+          lineHeight = 11.sp,
+          fontWeight = FontWeight.Bold,
+          color = Color(0xFFF3DEC0),
+        )
+      }
     }
   }
 }
@@ -357,17 +431,24 @@ private fun RankLabelsColumn(
 ) {
   val ranks = if (flipped) (1..8) else (8 downTo 1)
   Column(
-    modifier = modifier.fillMaxHeight(),
-    verticalArrangement = Arrangement.SpaceAround,
+    modifier = modifier,
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     ranks.forEach { rank ->
-      Text(
-        text = rank.toString(),
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color(0xFFF3DEC0),
-      )
+      Box(
+        modifier = Modifier
+          .weight(1f)
+          .fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          text = rank.toString(),
+          fontSize = 10.sp,
+          lineHeight = 11.sp,
+          fontWeight = FontWeight.Bold,
+          color = Color(0xFFF3DEC0),
+        )
+      }
     }
   }
 }
@@ -385,9 +466,9 @@ fun CheckerPieceCanvas(
 
     // Soft drop shadow
     drawCircle(
-      color = Color.Black.copy(alpha = 0.30f),
+      color = Color.Black.copy(alpha = 0.28f),
       radius = radius,
-      center = center + Offset(0f, size.minDimension * 0.07f),
+      center = center + Offset(0f, size.minDimension * 0.04f),
     )
 
     if (isSelected) {

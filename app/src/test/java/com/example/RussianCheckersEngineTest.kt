@@ -13,6 +13,7 @@ import com.example.domain.checkers.Square
 import com.example.domain.curriculum.DailyPuzzleHelper
 import com.example.domain.curriculum.EndgameCatalog
 import com.example.domain.curriculum.LessonCatalog
+import com.example.domain.curriculum.LessonFolder
 import com.example.domain.curriculum.PuzzleCatalog
 import com.example.domain.curriculum.PuzzleDifficulty
 import org.junit.Assert.assertEquals
@@ -93,55 +94,62 @@ class RussianCheckersEngineTest {
 
   @Test
   fun allLessonDemosAndExercises_are100PercentLegal() {
-    assertTrue(LessonCatalog.lessons.size >= 17)
+    assertEquals(47, LessonCatalog.lessons.size)
+    assertEquals(17, LessonCatalog.lessons.count { it.folder == LessonFolder.BEGINNER })
+    assertEquals(15, LessonCatalog.lessons.count { it.folder == LessonFolder.TACTICIAN })
+    assertEquals(15, LessonCatalog.lessons.count { it.folder == LessonFolder.GRANDMASTER })
+    assertEquals(47, LessonCatalog.lessons.map { it.id }.toSet().size)
+    val lessonErrors = mutableListOf<String>()
     for (lesson in LessonCatalog.lessons) {
       val exBoard = lesson.exerciseBoard()
       val legalEx = RussianCheckersEngine.getLegalMoves(exBoard, lesson.playerColor)
       val legalNotations = legalEx.map { it.notationString }.toSet()
 
-      assertTrue(
-        "Lesson ${lesson.id} hintMove ${lesson.hintMove.notationString} not in legal $legalNotations",
-        lesson.hintMove.notationString in legalNotations,
-      )
+      if (lesson.hintMove.notationString !in legalNotations) {
+        lessonErrors.add("Lesson ${lesson.id} hintMove ${lesson.hintMove.notationString} not in legal $legalNotations")
+      }
       for (accepted in lesson.acceptedMoveNotations) {
-        assertTrue(
-          "Lesson ${lesson.id} accepted move $accepted not in legal $legalNotations",
-          accepted in legalNotations,
-        )
+        if (accepted !in legalNotations) {
+          lessonErrors.add("Lesson ${lesson.id} accepted move $accepted not in legal $legalNotations")
+        }
       }
 
       var demoBoard = lesson.demoBoard()
       for ((idx, step) in lesson.demoSteps.withIndex()) {
         val m = step.move ?: continue
         val moverColor = demoBoard[m.from]?.color
-        assertNotNull("Lesson ${lesson.id} demo step $idx has no piece at ${m.from.notation}", moverColor)
-        val legalDemo = RussianCheckersEngine.getLegalMoves(demoBoard, moverColor!!).map { it.notationString }
-        assertTrue(
-          "Lesson ${lesson.id} demo step $idx move ${m.notationString} not legal in $legalDemo",
-          m.notationString in legalDemo,
-        )
+        if (moverColor == null) {
+          lessonErrors.add("Lesson ${lesson.id} demo step $idx has no piece at ${m.from.notation}")
+          break
+        }
+        val legalDemo = RussianCheckersEngine.getLegalMoves(demoBoard, moverColor).map { it.notationString }
+        if (m.notationString !in legalDemo) {
+          lessonErrors.add("Lesson ${lesson.id} demo step $idx move ${m.notationString} not legal in $legalDemo")
+          break
+        }
         demoBoard = RussianCheckersEngine.applyMove(demoBoard, m)
       }
     }
+    assertTrue(lessonErrors.joinToString("\n"), lessonErrors.isEmpty())
   }
 
   @Test
   fun allPuzzlesAndBotReplies_are100PercentLegal() {
+    val puzzleErrors = mutableListOf<String>()
     for (puzzle in PuzzleCatalog.puzzles) {
       var board = puzzle.initialBoard()
       for ((idx, step) in puzzle.steps.withIndex()) {
         val legal = RussianCheckersEngine.getLegalMoves(board, puzzle.playerColor)
         val legalNotations = legal.map { it.notationString }.toSet()
 
-        assertTrue(
-          "Puzzle ${puzzle.id} step $idx hintMove ${step.hintMove.notationString} not in $legalNotations",
-          step.hintMove.notationString in legalNotations,
-        )
+        if (step.hintMove.notationString !in legalNotations) {
+          puzzleErrors.add("Puzzle ${puzzle.id} step $idx hintMove ${step.hintMove.notationString} not in $legalNotations")
+          break
+        }
         for (accepted in step.acceptedNotations) {
-          assertTrue(
-            "Puzzle ${puzzle.id} step $idx accepted $accepted not in $legalNotations",
-            accepted in legalNotations,
-          )
+          if (accepted !in legalNotations) {
+            puzzleErrors.add("Puzzle ${puzzle.id} step $idx accepted $accepted not in $legalNotations")
+          }
         }
 
         val chosenMove = legal.first { it.notationString == step.hintMove.notationString }
@@ -151,14 +159,15 @@ class RussianCheckersEngineTest {
         if (reply != null) {
           val botLegal = RussianCheckersEngine.getLegalMoves(board, puzzle.playerColor.opposite())
             .map { it.notationString }
-          assertTrue(
-            "Puzzle ${puzzle.id} step $idx botReply ${reply.notationString} not in $botLegal",
-            reply.notationString in botLegal,
-          )
+          if (reply.notationString !in botLegal) {
+            puzzleErrors.add("Puzzle ${puzzle.id} step $idx botReply ${reply.notationString} not in $botLegal")
+            break
+          }
           board = RussianCheckersEngine.applyMove(board, reply)
         }
       }
     }
+    assertTrue(puzzleErrors.joinToString("\n"), puzzleErrors.isEmpty())
   }
 
   @Test
@@ -207,11 +216,11 @@ class RussianCheckersEngineTest {
   }
 
   @Test
-  fun puzzleCatalog_contains20PuzzlesIncludingMasterTier() {
-    assertTrue(PuzzleCatalog.puzzles.size >= 20)
-    assertTrue(
-      PuzzleCatalog.puzzles.any { it.difficulty == PuzzleDifficulty.MASTER }
-    )
+  fun puzzleCatalog_contains50PuzzlesWithHardAndMasterExpansion() {
+    assertEquals(50, PuzzleCatalog.puzzles.size)
+    assertEquals(50, PuzzleCatalog.puzzles.map { it.id }.toSet().size)
+    assertEquals(24, PuzzleCatalog.puzzles.count { it.difficulty == PuzzleDifficulty.HARD })
+    assertEquals(20, PuzzleCatalog.puzzles.count { it.difficulty == PuzzleDifficulty.MASTER })
   }
 
   @Test
@@ -239,15 +248,25 @@ class RussianCheckersEngineTest {
   }
 
   @Test
-  fun endgameScenarios_allHaveValidInitialBoardsAndMoves() {
-    assertEquals(6, EndgameCatalog.scenarios.size)
+  fun endgameScenarios_allHaveValidWinningInitialBoardsAndMoves() {
+    assertEquals(16, EndgameCatalog.scenarios.size)
+    assertEquals(16, EndgameCatalog.scenarios.map { it.id }.toSet().size)
     for (scenario in EndgameCatalog.scenarios) {
       val board = scenario.initialBoard()
       assertTrue(board.countPieces(PieceColor.WHITE) > 0)
       assertTrue(board.countPieces(PieceColor.BLACK) > 0)
       val legal = RussianCheckersEngine.getLegalMoves(board, PieceColor.WHITE)
       assertTrue("Endgame ${scenario.id} has no legal White moves", legal.isNotEmpty())
+      val eval = RussianCheckersEngine.evaluatePositionQuick(board, PieceColor.WHITE)
+      assertTrue(
+        "Endgame ${scenario.id} should have winning White edge, got $eval",
+        eval >= 80,
+      )
     }
+
+    val endgame3 = EndgameCatalog.findById("endgame_king_man_vs_king")!!
+    val eval3 = RussianCheckersEngine.evaluatePositionQuick(endgame3.initialBoard(), PieceColor.WHITE)
+    assertTrue("Endgame #3 should be clearly winning (>= 300), got $eval3", eval3 >= 300)
   }
 
   @Test

@@ -50,7 +50,7 @@ object RewardCatalog {
     RewardBadge(
       id = "badge_tournament_ready",
       title = "Готов к турниру",
-      description = "Пройди все 17 уроков вместе со школой разрядника и дебютами",
+      description = "Пройди все 17 базовых уроков из папки «Для начинающих»",
       iconName = "military_tech",
     ),
     RewardBadge(
@@ -68,7 +68,7 @@ object RewardCatalog {
     RewardBadge(
       id = "badge_combination_king",
       title = "Охотник за разрядом",
-      description = "Реши все 20 задач, включая мастерские комбинации",
+      description = "Реши не меньше 20 сложных и мастерских задач",
       iconName = "workspace_premium",
     ),
     RewardBadge(

@@ -14,6 +14,12 @@ enum class LessonCategory(val title: String) {
   OPENINGS("Дебютный тренажёр"),
 }
 
+enum class LessonFolder(val title: String, val subtitle: String, val badgeText: String) {
+  BEGINNER("Для начинающих", "Базовые 17 уроков: правила, удары, дамка и первые дебюты", "1–17"),
+  TACTICIAN("Хитрый Тактик", "15 уроков тактики: вилки, жертвы, ловля дамок и борьба за центр", "Тактик"),
+  GRANDMASTER("Гроссмейстер", "15 уроков и задач: цугцванг, многоходовые каскады и эндшпиль", "Гросс"),
+}
+
 data class DemoStep(
   val caption: String,
   val move: CheckersMove? = null,
@@ -26,6 +32,7 @@ data class InteractiveLesson(
   val title: String,
   val subtitle: String,
   val category: LessonCategory,
+  val folder: LessonFolder = LessonFolder.BEGINNER,
   val shortRule: String,
   val mascotTip: String,
   val demoInitialRows: List<String>,
@@ -45,7 +52,7 @@ data class InteractiveLesson(
 }
 
 object LessonCatalog {
-  val lessons: List<InteractiveLesson> = listOf(
+  val starterLessons: List<InteractiveLesson> = listOf(
     InteractiveLesson(
       id = "lesson_1_move",
       order = 1,
@@ -930,6 +937,9 @@ object LessonCatalog {
       starsReward = 3,
     ),
   )
+
+  val lessons: List<InteractiveLesson> =
+    starterLessons + AdvancedLessons.tacticianLessons + AdvancedLessons.grandmasterLessons
 
   fun findById(id: String): InteractiveLesson? = lessons.find { it.id == id }
 }

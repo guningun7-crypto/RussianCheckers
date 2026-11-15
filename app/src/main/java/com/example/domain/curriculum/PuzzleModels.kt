@@ -35,7 +35,7 @@ data class LogicPuzzle(
 }
 
 object PuzzleCatalog {
-  val puzzles: List<LogicPuzzle> = listOf(
+  private val starterPuzzles: List<LogicPuzzle> = listOf(
     LogicPuzzle(
       id = "puzzle_1_zigzag",
       order = 1,
@@ -756,6 +756,9 @@ object PuzzleCatalog {
       successExplanation = "Браво, настоящий этюдный расчёт! Жертва c5–d6 заманила Дамку под двойной удар h8:c3:e1!",
     ),
   )
+
+  val puzzles: List<LogicPuzzle> =
+    starterPuzzles + HardPuzzlesPack.puzzles + MasterPuzzlesPack.puzzles
 
   fun findById(id: String): LogicPuzzle? = puzzles.find { it.id == id }
 }

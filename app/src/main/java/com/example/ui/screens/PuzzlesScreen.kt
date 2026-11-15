@@ -268,10 +268,11 @@ fun PuzzlesScreen(
             modifier = Modifier.testTag("puzzle_filter_all"),
           )
           PuzzleDifficulty.entries.forEach { diff ->
+            val diffCount = allPuzzles.count { it.difficulty == diff }
             FilterChip(
               selected = selectedDifficulty == diff,
               onClick = { selectedDifficulty = if (selectedDifficulty == diff) null else diff },
-              label = { Text(diff.label) },
+              label = { Text("${diff.label} ($diffCount)") },
               modifier = Modifier.testTag("puzzle_filter_${diff.name}"),
             )
           }
