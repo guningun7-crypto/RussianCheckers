@@ -89,13 +89,13 @@ fun LessonsScreen(
     lessons.filter { it.id in progressState.customLessonIds }
   }
 
-  // «Для начинающих» свёрнута по умолчанию; новые папки раскрываются по нажатию
+  // Все папки с уроками закрыты при входе; пользователь сам открывает нужную папку
   val expandedFolders = remember {
     mutableStateMapOf(
       LessonFolder.BEGINNER.name to false,
-      LessonFolder.TACTICIAN.name to true,
-      LessonFolder.GRANDMASTER.name to true,
-      "CUSTOM" to true,
+      LessonFolder.TACTICIAN.name to false,
+      LessonFolder.GRANDMASTER.name to false,
+      "CUSTOM" to false,
     )
   }
 
@@ -228,7 +228,7 @@ fun LessonsScreen(
       }
 
       if (customLessons.isNotEmpty()) {
-        val customExpanded = expandedFolders["CUSTOM"] ?: true
+        val customExpanded = expandedFolders["CUSTOM"] ?: false
         item(key = "folder_CUSTOM", contentType = "folder_header") {
           val customDone = remember(customLessons, lessonProgress) {
             customLessons.count { lessonProgress[it.id]?.completed == true }
